@@ -1,0 +1,7 @@
+# File yang tidak perlu diunggah ke Vercel
+*.ps1
+*.md
+apps-script/
+.git/
+node_modules/
+.vercel/

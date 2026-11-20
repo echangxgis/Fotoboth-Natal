@@ -1,0 +1,12 @@
+# Dependensi & build
+node_modules/
+.vercel/
+
+# Berkas sementara
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Salinan lokal
+*.bak

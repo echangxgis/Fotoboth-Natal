@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#2b0409">
+<title>Photobooth Natal</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="snow" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-star">★</span>
+    <span id="brandEvent">Natal Sekolah Kristen Kalam Kudus Sentani 2026</span>
+  </div>
+  <button id="btnOperator" class="icon-btn" title="Panel operator" aria-label="Panel operator">⚙</button>
+</header>
+
+<main id="stage">
+
+  <!-- ============ START ============ -->
+  <section class="screen active" id="screen-start">
+    <div class="start-wrap">
+      <p class="eyebrow">Photobooth</p>
+      <h1 class="title-xl">Selamat<br>Natal</h1>
+      <p class="subtitle">Sentuh layar untuk mulai berfoto</p>
+      <button class="btn-primary btn-xl" id="btnStart">Mulai Foto</button>
+      <p class="hint">Gratis · Pilih bingkai · Hasil langsung masuk Drive</p>
+    </div>
+  </section>
+
+  <!-- ============ TEMPLATES ============ -->
+  <section class="screen" id="screen-templates">
+    <div class="section-head">
+      <h2>Pilih Bingkai</h2>
+      <p>Sentuh salah satu bingkai favoritmu</p>
+    </div>
+    <div class="template-grid" id="templateGrid"></div>
+    <button class="btn-ghost back" data-back="start">Kembali</button>
+  </section>
+
+  <!-- ============ CAPTURE ============ -->
+  <section class="screen" id="screen-capture">
+    <div class="cam-wrap">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="cam-guide" id="camGuide"></div>
+      <div class="countdown" id="countdown"></div>
+      <div class="flash" id="flash"></div>
+      <div class="shot-dots" id="shotDots"></div>
+      <div class="cam-hint" id="camHint">Bersiap...</div>
+      <div class="cam-error" id="camError" hidden>
+        <div class="cam-error-icon">◉</div>
+        <h3>Kamera tidak bisa dibuka</h3>
+        <p id="camErrorMsg"></p>
+        <button class="btn-primary" id="btnCamRetry">Coba Lagi</button>
+      </div>
+    </div>
+    <button class="btn-ghost back" data-back="templates">Batal</button>
+  </section>
+
+  <!-- ============ REVIEW ============ -->
+  <section class="screen" id="screen-review">
+    <div class="section-head">
+      <h2>Mau simpan foto ini?</h2>
+      <p>Periksa dulu. Kalau kurang bagus, bisa ulangi.</p>
+    </div>
+    <div class="review-wrap">
+      <canvas id="previewCanvas"></canvas>
+    </div>
+    <div class="actions">
+      <button class="btn-ghost" id="btnRetake">Ulangi Foto</button>
+      <button class="btn-primary" id="btnApprove">Setuju &amp; Simpan</button>
+    </div>
+  </section>
+
+  <!-- ============ DONE ============ -->
+  <section class="screen" id="screen-done">
+    <div class="done-wrap">
+      <div class="done-icon" id="doneIcon">✓</div>
+      <h2 id="doneTitle">Foto tersimpan!</h2>
+      <p id="doneMsg">Terima kasih sudah berfoto.</p>
+      <div class="result-card">
+        <canvas id="resultCanvas"></canvas>
+        <div class="result-meta">
+          <p class="code-label">Kode foto</p>
+          <p class="code" id="sessionCode">—</p>
+          <img id="qrImg" alt="QR menuju folder Drive" class="qr" hidden>
+          <a id="folderLink" class="link" href="#" target="_blank" rel="noopener">Buka folder Drive</a>
+        </div>
+      </div>
+      <button class="btn-primary btn-xl" id="btnDone">Selesai</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ SETUP MODAL ============ -->
+<div class="modal" id="setupModal">
+  <div class="modal-card">
+    <h2>Pengaturan Awal</h2>
+    <p class="muted">
+      Tempel URL Web App Google Apps Script yang sudah Anda deploy.
+      Langkah lengkap ada di <code>PANDUAN.md</code>.
+    </p>
+
+    <label for="inpEndpoint">URL Web App (berakhiran <code>/exec</code>)</label>
+    <input id="inpEndpoint" type="url" placeholder="https://script.google.com/macros/s/AKfy.../exec" autocomplete="off">
+
+    <label for="inpToken">Token</label>
+    <input id="inpToken" type="text" placeholder="NTL-7f3a9c2e" autocomplete="off">
+
+    <label for="inpFolder">Link folder Drive</label>
+    <input id="inpFolder" type="url" autocomplete="off">
+
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnSkipSetup">Nanti saja</button>
+      <button class="btn-ghost" id="btnTestSetup">Tes Koneksi</button>
+      <button class="btn-primary" id="btnSaveSetup">Simpan</button>
+    </div>
+    <p class="status" id="setupStatus"></p>
+  </div>
+</div>
+
+<!-- ============ OPERATOR MODAL ============ -->
+<div class="modal" id="operatorModal">
+  <div class="modal-card">
+    <h2>Panel Operator</h2>
+
+    <label for="opEvent">Nama acara</label>
+    <input id="opEvent" type="text">
+
+    <label for="opEndpoint">URL Web App Apps Script</label>
+    <input id="opEndpoint" type="url" autocomplete="off">
+
+    <label for="opToken">Token</label>
+    <input id="opToken" type="text" autocomplete="off">
+
+    <label for="opFolder">ID Folder Drive</label>
+    <input id="opFolder" type="text" autocomplete="off">
+
+    <div class="op-row">
+      <span>Antrean belum terkirim: <b id="opQueue">0</b></span>
+      <button class="btn-ghost small" id="btnRetryQueue">Kirim ulang</button>
+    </div>
+
+    <div class="op-row">
+      <span>Sesi tersimpan di perangkat: <b id="opSessions">0</b></span>
+      <button class="btn-ghost small" id="btnResetStats">Reset</button>
+    </div>
+
+    <div class="op-row">
+      <span>Kamera</span>
+      <button class="btn-ghost small" id="btnTestCam">Tes kamera</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnOpClose">Tutup</button>
+      <button class="btn-primary" id="btnOpSave">Simpan</button>
+    </div>
+    <p class="status" id="opStatus"></p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/config.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/drive.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
