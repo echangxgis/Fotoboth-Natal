@@ -209,23 +209,70 @@ body {
 }
 .section-head p { margin: 0; font-size: 15px; color: var(--muted); }
 
+/* ---------- logo halaman depan ---------- */
+.start-logo {
+  display: block;
+  width: clamp(92px, 11vw, 146px);
+  height: auto;
+  margin: 0 auto 16px;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.55));
+}
+.start-logo[hidden] { display: none; }
+
 /* ---------- template grid ---------- */
+#templateGrid {
+  width: 100%;
+  max-width: 1280px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 22px 16px;
+  align-items: start;
+}
+
+.tpl-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.tpl-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 0 4px;
+  border-bottom: 1px solid rgba(232, 194, 106, 0.12);
+  padding-bottom: 8px;
+}
+.tpl-group-head h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  color: var(--gold-soft);
+}
+.tpl-group-head span {
+  font-size: 12.5px;
+  color: rgba(253, 246, 232, 0.42);
+}
+
 .template-grid {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 20px;
-  max-width: 1180px;
+  gap: 16px;
 }
 
 .template-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px;
   padding: 12px 12px 14px;
-  width: 190px;
+  width: 178px;
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(232, 194, 106, 0.18);
@@ -242,13 +289,40 @@ body {
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4);
   outline: none;
 }
+
+.tpl-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 214px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 35%, rgba(232, 194, 106, 0.1), rgba(0, 0, 0, 0.2));
+  overflow: hidden;
+}
+
 .template-card canvas {
-  max-height: 238px;
+  max-height: 214px;
   max-width: 100%;
   border-radius: 8px;
   border: 1px solid rgba(232, 194, 106, 0.22);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  display: block;
 }
+
+.tpl-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(232, 194, 106, 0.85);
+  background: rgba(232, 194, 106, 0.1);
+  border: 1px solid rgba(232, 194, 106, 0.22);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
 .tpl-name { font-size: 15px; font-weight: 700; color: var(--gold-soft); }
 .tpl-desc { font-size: 12px; color: var(--muted); text-align: center; }
 
@@ -590,6 +664,7 @@ body {
   color: var(--muted);
 }
 .op-row b { color: var(--gold-soft); }
+.op-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .status {
   margin: 14px 0 0;
@@ -623,8 +698,10 @@ body {
 
 /* ---------- small screens ---------- */
 @media (max-width: 760px) {
-  .template-card { width: 150px; padding: 10px; }
-  .template-card canvas { max-height: 190px; }
+  .template-card { width: 148px; padding: 10px; }
+  .tpl-thumb { height: 168px; }
+  .template-card canvas { max-height: 168px; }
+  .tpl-group-head h3 { font-size: 17px; }
   .result-card { flex-direction: column; }
   #resultCanvas { max-width: 70vw; }
   .result-meta { text-align: center; }

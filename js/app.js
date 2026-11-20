@@ -11,6 +11,7 @@
   const CFG_KEY = 'pb_natal_cfg_v1';
   const STATS_KEY = 'pb_natal_stats_v1';
   const SKIP_KEY = 'pb_natal_setup_skipped';
+  const LOGO_KEY = 'pb_natal_logo_v1';
 
   const DEFAULT_CFG = Object.assign({
     endpoint: '',
@@ -64,7 +65,53 @@
 
   function applyCfgToUI() {
     $('#brandEvent').textContent = cfg.eventName || 'Photobooth Natal';
+    const startEvent = $('#startEvent');
+    if (startEvent) startEvent.textContent = cfg.eventName || '';
     document.title = 'Photobooth · ' + (cfg.eventName || 'Natal');
+  }
+
+  /* =========================================================
+     Logo sekolah di halaman depan
+     ========================================================= */
+
+  function logoSource() {
+    try {
+      return localStorage.getItem(LOGO_KEY) || 'img/logo.png';
+    } catch (e) {
+      return 'img/logo.png';
+    }
+  }
+
+  function applyLogo() {
+    const img = $('#startLogo');
+    if (!img) return;
+    img.hidden = true;
+    img.onload = function () { img.hidden = false; };
+    img.onerror = function () { img.hidden = true; };
+    img.src = logoSource();
+    if (img.complete && img.naturalWidth > 0) img.hidden = false;
+  }
+
+  function shrinkImage(file, maxSize) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onerror = function () { reject(new Error('File tidak bisa dibaca')); };
+      reader.onload = function () {
+        const img = new Image();
+        img.onerror = function () { reject(new Error('Format gambar tidak didukung')); };
+        img.onload = function () {
+          const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+          const c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(img.width * scale));
+          c.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          resolve(c.toDataURL('image/png'));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function folderUrl() {
@@ -201,39 +248,93 @@
      Template grid
      ========================================================= */
 
+  function buildTemplateCard(tpl) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'template-card';
+    card.setAttribute('aria-label', tpl.name + ', ' + tpl.shots + ' foto, rasio ' + (tpl.ratio || ''));
+
+    const thumb = document.createElement('span');
+    thumb.className = 'tpl-thumb';
+
+    const canvas = document.createElement('canvas');
+    const full = document.createElement('canvas');
+    renderTemplate(full, tpl, [], { eventName: cfg.eventName, code: '' });
+
+    const maxH = 236;
+    const maxW = 150;
+    const scale = Math.min(maxH / tpl.h, maxW / tpl.w, 1);
+    canvas.width = Math.round(tpl.w * scale);
+    canvas.height = Math.round(tpl.h * scale);
+    canvas.getContext('2d').drawImage(full, 0, 0, canvas.width, canvas.height);
+
+    thumb.appendChild(canvas);
+
+    const badge = document.createElement('span');
+    badge.className = 'tpl-badge';
+    badge.textContent = tpl.shots + ' foto · ' + (tpl.ratio || '');
+
+    const name = document.createElement('span');
+    name.className = 'tpl-name';
+    name.textContent = tpl.name;
+
+    const desc = document.createElement('span');
+    desc.className = 'tpl-desc';
+    desc.textContent = tpl.desc;
+
+    card.appendChild(thumb);
+    card.appendChild(badge);
+    card.appendChild(name);
+    card.appendChild(desc);
+    card.addEventListener('click', function () { selectTemplate(tpl); });
+
+    return card;
+  }
+
   function buildTemplateGrid() {
     const grid = $('#templateGrid');
     grid.innerHTML = '';
 
-    TEMPLATES.forEach(function (tpl) {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'template-card';
+    const groups = window.PB.GROUPS || [];
+    const used = [];
 
-      const canvas = document.createElement('canvas');
-      const name = document.createElement('span');
-      name.className = 'tpl-name';
-      name.textContent = tpl.name;
-      const desc = document.createElement('span');
-      desc.className = 'tpl-desc';
-      desc.textContent = tpl.desc;
+    groups.forEach(function (g) {
+      const items = TEMPLATES.filter(function (t) { return t.group === g.id; });
+      if (!items.length) return;
+      used.push(g.id);
 
-      const full = document.createElement('canvas');
-      renderTemplate(full, tpl, [], { eventName: cfg.eventName, code: '' });
+      const section = document.createElement('section');
+      section.className = 'tpl-group';
 
-      const maxH = 260;
-      const scale = Math.min(maxH / tpl.h, 1);
-      canvas.width = Math.round(tpl.w * scale);
-      canvas.height = Math.round(tpl.h * scale);
-      canvas.getContext('2d').drawImage(full, 0, 0, canvas.width, canvas.height);
+      const head = document.createElement('div');
+      head.className = 'tpl-group-head';
+      const title = document.createElement('h3');
+      title.textContent = g.label;
+      const note = document.createElement('span');
+      note.textContent = g.note || '';
+      head.appendChild(title);
+      head.appendChild(note);
+      section.appendChild(head);
 
-      card.appendChild(canvas);
-      card.appendChild(name);
-      card.appendChild(desc);
-      card.addEventListener('click', function () { selectTemplate(tpl); });
+      const row = document.createElement('div');
+      row.className = 'template-grid';
+      items.forEach(function (tpl) { row.appendChild(buildTemplateCard(tpl)); });
+      section.appendChild(row);
 
-      grid.appendChild(card);
+      grid.appendChild(section);
     });
+
+    // jaga-jaga: template tanpa grup tetap tampil
+    const rest = TEMPLATES.filter(function (t) { return used.indexOf(t.group) === -1; });
+    if (rest.length) {
+      const section = document.createElement('section');
+      section.className = 'tpl-group';
+      const row = document.createElement('div');
+      row.className = 'template-grid';
+      rest.forEach(function (tpl) { row.appendChild(buildTemplateCard(tpl)); });
+      section.appendChild(row);
+      grid.appendChild(section);
+    }
   }
 
   function selectTemplate(tpl) {
@@ -646,6 +747,39 @@
 
     $('#btnOperator').addEventListener('click', openOperator);
 
+    // logo sekolah di halaman depan
+    const logoInput = $('#opLogo');
+    const pickLogo = $('#btnPickLogo');
+    if (pickLogo && logoInput) {
+      pickLogo.addEventListener('click', function () { logoInput.click(); });
+      logoInput.addEventListener('change', async function () {
+        const file = this.files && this.files[0];
+        this.value = '';
+        if (!file) return;
+        const status = $('#opStatus');
+        status.className = 'status';
+        status.textContent = 'Memuat gambar...';
+        try {
+          const dataUrl = await shrinkImage(file, 420);
+          localStorage.setItem(LOGO_KEY, dataUrl);
+          applyLogo();
+          status.textContent = 'Logo tersimpan di perangkat ini.';
+          toast('Logo sekolah diperbarui');
+        } catch (err) {
+          status.className = 'status err';
+          status.textContent = 'Gagal membaca gambar: ' + ((err && err.message) || err);
+        }
+      });
+    }
+    const clearLogo = $('#btnClearLogo');
+    if (clearLogo) {
+      clearLogo.addEventListener('click', function () {
+        try { localStorage.removeItem(LOGO_KEY); } catch (e) { /* ignore */ }
+        applyLogo();
+        $('#opStatus').textContent = 'Logo dihapus, kembali ke gambar bawaan.';
+      });
+    }
+
     // setup
     $('#btnSaveSetup').addEventListener('click', function () {
       const v = readSetupInputs();
@@ -763,6 +897,7 @@
 
   function init() {
     applyCfgToUI();
+    applyLogo();
     buildTemplateGrid();
     wireEvents();
     spawnSnow();

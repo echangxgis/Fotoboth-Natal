@@ -138,12 +138,24 @@
 
   /* ---------------- template definitions ---------------- */
 
+  /**
+   * Kelompok bingkai di layar "Pilih Bingkai".
+   * Urutan array ini menentukan urutan tampil.
+   */
+  const GROUPS = [
+    { id: 'strip', label: 'Strip Photobooth', note: 'Cetak klasik, 3–4 foto berurutan' },
+    { id: 'story', label: 'Story & Reels', note: 'Ukuran 9:16, pas untuk Instagram Story dan Reels' },
+    { id: 'besar', label: 'Bingkai Besar', note: 'Satu foto, ukuran besar' }
+  ];
+
   const TEMPLATES = [
     /* ---------- 1. Strip 3 foto ---------- */
     {
       id: 'strip3',
       name: 'Strip Klasik',
       desc: '3 foto, gaya photobooth',
+      group: 'strip',
+      ratio: '2:3',
       w: 600,
       h: 1800,
       shots: 3,
@@ -210,6 +222,8 @@
       id: 'strip4',
       name: 'Strip Empat',
       desc: '4 foto berurutan',
+      group: 'strip',
+      ratio: '2:3',
       w: 600,
       h: 1800,
       shots: 4,
@@ -276,6 +290,8 @@
       id: 'landscape',
       name: 'Bingkai Lebar',
       desc: '1 foto besar + ucapan',
+      group: 'besar',
+      ratio: '3:2',
       w: 1800,
       h: 1200,
       shots: 1,
@@ -350,6 +366,8 @@
       id: 'square',
       name: 'Persegi',
       desc: '1 foto, pas untuk medsos',
+      group: 'besar',
+      ratio: '1:1',
       w: 1080,
       h: 1080,
       shots: 1,
@@ -399,6 +417,178 @@
         ctx.font = '400 15px "Trebuchet MS", sans-serif';
         ctx.textAlign = 'right';
         ctx.fillText(m.code || '', 1010, 1066);
+      }
+    },
+
+    /* ---------- 5. Story tunggal 9:16 ---------- */
+    {
+      id: 'story1',
+      name: 'Story Tunggal',
+      desc: '1 foto, 9:16 untuk Story & Reels',
+      group: 'story',
+      ratio: '9:16',
+      w: 1080,
+      h: 1920,
+      shots: 1,
+      slots: [
+        { x: 60, y: 520, w: 960, h: 720, r: 26 }
+      ],
+      bg: function (ctx) {
+        const g = ctx.createLinearGradient(0, 0, 0, 1920);
+        g.addColorStop(0, '#6d0d18');
+        g.addColorStop(0.42, '#3f0610');
+        g.addColorStop(1, '#07170f');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 1080, 1920);
+
+        const rg = ctx.createRadialGradient(540, 380, 40, 540, 380, 760);
+        rg.addColorStop(0, 'rgba(232,194,106,0.22)');
+        rg.addColorStop(1, 'rgba(232,194,106,0)');
+        ctx.fillStyle = rg;
+        ctx.fillRect(0, 0, 1080, 1300);
+
+        const pts = [
+          [92, 200, 17], [988, 258, 13], [72, 980, 19],
+          [1008, 1120, 15], [124, 1500, 13], [956, 1532, 17],
+          [540, 1690, 11]
+        ];
+        pts.forEach(function (p) { snowflake(ctx, p[0], p[1], p[2], '#f3e3c0', 0.16); });
+      },
+      overlay: function (ctx, m) {
+        ctx.strokeStyle = 'rgba(232,194,106,0.85)';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(34, 34, 1012, 1852);
+        ctx.strokeStyle = 'rgba(232,194,106,0.26)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(46, 46, 988, 1828);
+
+        ctx.strokeStyle = 'rgba(232,194,106,0.7)';
+        ctx.lineWidth = 5;
+        roundRect(ctx, 60, 520, 960, 720, 26);
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+
+        ctx.fillStyle = 'rgba(247,231,198,0.5)';
+        ctx.font = '600 24px "Trebuchet MS", sans-serif';
+        spacedText(ctx, 'PHOTOBOOTH', 540, 186, 10);
+
+        star(ctx, 540, 258, 15, '#e8c26a');
+
+        ctx.fillStyle = 'rgba(247,231,198,0.85)';
+        ctx.font = '400 54px "Trebuchet MS", sans-serif';
+        spacedText(ctx, 'SELAMAT', 540, 346, 14);
+
+        ctx.fillStyle = '#f7e7c6';
+        ctx.font = '400 132px Georgia, "Times New Roman", serif';
+        ctx.fillText('NATAL', 540, 470);
+
+        ctx.strokeStyle = 'rgba(232,194,106,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(390, 1320);
+        ctx.lineTo(690, 1320);
+        ctx.stroke();
+
+        drawEventBlock(ctx, m.eventName, 540, {
+          y: 1392,
+          size: 34,
+          maxWidth: 880,
+          lineGap: 46,
+          forceTwo: true,
+          color: 'rgba(247,231,198,0.85)'
+        });
+
+        ctx.fillStyle = 'rgba(247,231,198,0.45)';
+        ctx.font = '400 23px "Trebuchet MS", sans-serif';
+        ctx.fillText(m.code || '', 540, 1606);
+      }
+    },
+
+    /* ---------- 6. Story kolase 9:16 ---------- */
+    {
+      id: 'story3',
+      name: 'Story Kolase',
+      desc: '3 foto, 9:16 untuk Story & Reels',
+      group: 'story',
+      ratio: '9:16',
+      w: 1080,
+      h: 1920,
+      shots: 3,
+      slots: [
+        { x: 60, y: 292, w: 960, h: 636, r: 24 },
+        { x: 60, y: 952, w: 470, h: 436, r: 20 },
+        { x: 550, y: 952, w: 470, h: 436, r: 20 }
+      ],
+      bg: function (ctx) {
+        const g = ctx.createLinearGradient(0, 0, 1080, 1920);
+        g.addColorStop(0, '#0f3d2b');
+        g.addColorStop(0.45, '#24060c');
+        g.addColorStop(1, '#4a0710');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 1080, 1920);
+
+        const rg = ctx.createRadialGradient(540, 160, 40, 540, 160, 700);
+        rg.addColorStop(0, 'rgba(232,194,106,0.20)');
+        rg.addColorStop(1, 'rgba(232,194,106,0)');
+        ctx.fillStyle = rg;
+        ctx.fillRect(0, 0, 1080, 900);
+
+        const pts = [
+          [86, 150, 15], [992, 196, 12], [70, 760, 13],
+          [1010, 860, 16], [112, 1440, 15], [968, 1470, 12],
+          [540, 1600, 10]
+        ];
+        pts.forEach(function (p) { snowflake(ctx, p[0], p[1], p[2], '#f3e3c0', 0.16); });
+      },
+      overlay: function (ctx, m) {
+        ctx.strokeStyle = 'rgba(232,194,106,0.85)';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(34, 34, 1012, 1852);
+        ctx.strokeStyle = 'rgba(232,194,106,0.26)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(46, 46, 988, 1828);
+
+        ctx.strokeStyle = 'rgba(232,194,106,0.62)';
+        ctx.lineWidth = 4;
+        roundRect(ctx, 60, 292, 960, 636, 24);
+        ctx.stroke();
+        roundRect(ctx, 60, 952, 470, 436, 20);
+        ctx.stroke();
+        roundRect(ctx, 550, 952, 470, 436, 20);
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+
+        ctx.fillStyle = 'rgba(247,231,198,0.5)';
+        ctx.font = '600 22px "Trebuchet MS", sans-serif';
+        spacedText(ctx, 'PHOTOBOOTH', 540, 158, 10);
+
+        ctx.fillStyle = '#f7e7c6';
+        ctx.font = '400 62px Georgia, "Times New Roman", serif';
+        ctx.fillText('SELAMAT NATAL', 540, 252);
+
+        ctx.strokeStyle = 'rgba(232,194,106,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(390, 1444);
+        ctx.lineTo(690, 1444);
+        ctx.stroke();
+
+        drawEventBlock(ctx, m.eventName, 540, {
+          y: 1512,
+          size: 32,
+          maxWidth: 860,
+          lineGap: 44,
+          forceTwo: true,
+          color: 'rgba(247,231,198,0.85)'
+        });
+
+        ctx.fillStyle = 'rgba(247,231,198,0.45)';
+        ctx.font = '400 22px "Trebuchet MS", sans-serif';
+        ctx.fillText(m.code || '', 540, 1690);
       }
     }
   ];
@@ -502,5 +692,6 @@
 
   window.PB = window.PB || {};
   window.PB.TEMPLATES = TEMPLATES;
+  window.PB.GROUPS = GROUPS;
   window.PB.renderTemplate = renderTemplate;
 })();

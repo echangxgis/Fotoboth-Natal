@@ -43,6 +43,7 @@ Cara mendapatkannya ada di Langkah 5 di bawah. Kalau Anda sudah punya URL-nya, t
 photobooth-natal/
 ├─ index.html          aplikasi utama
 ├─ css/style.css
+├─ img/logo.png        logo sekolah (opsional, lihat bagian Logo)
 ├─ js/config.js        URL Apps Script & nama acara (sudah terisi)
 ├─ js/templates.js     mesin bingkai (digambar dengan canvas)
 ├─ js/drive.js         pengiriman ke Google Drive
@@ -366,14 +367,59 @@ Kode `NTL-001` juga muncul di layar, jadi anak bisa mencari fotonya sendiri di f
 
 ## Bingkai yang Tersedia
 
+Layar **Pilih Bingkai** dibagi menjadi tiga kelompok.
+
+### Strip Photobooth
+
 | Bingkai | Ukuran | Jumlah foto |
 |---|---|---|
-| Strip Klasik | 600×1800 (strip) | 3 |
-| Strip Empat | 600×1800 (strip) | 4 |
-| Bingkai Lebar | 1800×1200 (4R landscape) | 1 |
-| Persegi | 1080×1080 (medsos) | 1 |
+| Strip Klasik | 600×1800 (2:3) | 3 |
+| Strip Empat | 600×1800 (2:3) | 4 |
+
+### Story & Reels
+
+| Bingkai | Ukuran | Jumlah foto |
+|---|---|---|
+| Story Tunggal | 1080×1920 (9:16) | 1 |
+| Story Kolase | 1080×1920 (9:16) | 3 |
+
+Ukuran 9:16 pas untuk Instagram Story, Reels cover, WhatsApp Status, dan TikTok.
+Teks penting sengaja diletakkan di area aman, jadi tidak tertutup tombol Instagram.
+
+### Bingkai Besar
+
+| Bingkai | Ukuran | Jumlah foto |
+|---|---|---|
+| Bingkai Lebar | 1800×1200 (3:2, 4R landscape) | 1 |
+| Persegi | 1080×1080 (1:1) | 1 |
 
 Semua bingkai digambar langsung dengan kode, jadi tidak ada file gambar yang bisa hilang. Untuk menambah atau mengubah bingkai, edit `js/templates.js`.
+
+---
+
+## Logo Sekolah di Halaman Depan
+
+Ada dua cara memasang logo.
+
+### Cara 1 — lewat Panel Operator (paling cepat)
+
+1. Klik ikon **⚙** di kanan atas
+2. Pada baris **Logo sekolah di halaman depan**, klik **Pilih gambar**
+3. Pilih file logo (PNG/JPG). Logo langsung muncul di halaman depan.
+4. Logo tersimpan di browser perangkat itu. Klik **Hapus** untuk membatalkannya.
+
+Cocok kalau logo hanya dipakai di satu laptop.
+
+### Cara 2 — lewat file (untuk Vercel dan semua perangkat)
+
+1. Simpan logo sebagai `img/logo.png` di folder aplikasi
+2. Deploy ulang (`.\deploy.ps1` atau `git push`)
+
+Logo akan muncul otomatis di semua perangkat, tanpa perlu diatur satu per satu.
+Kalau `img/logo.png` tidak ada, halaman depan tetap jalan tanpa logo.
+
+> Gunakan PNG dengan latar transparan supaya menyatu dengan latar merah gelap.
+> Ukuran 300–500 px sudah cukup.
 
 ---
 

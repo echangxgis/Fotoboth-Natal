@@ -24,11 +24,12 @@
   <!-- ============ START ============ -->
   <section class="screen active" id="screen-start">
     <div class="start-wrap">
+      <img id="startLogo" class="start-logo" alt="Logo Kalam Kudus" hidden>
       <p class="eyebrow">Photobooth</p>
       <h1 class="title-xl">Selamat<br>Natal</h1>
-      <p class="subtitle">Sentuh layar untuk mulai berfoto</p>
+      <p class="subtitle" id="startEvent">Natal Sekolah Kristen Kalam Kudus Sentani 2026</p>
       <button class="btn-primary btn-xl" id="btnStart">Mulai Foto</button>
-      <p class="hint">Gratis · Pilih bingkai · Hasil langsung masuk Drive</p>
+      <p class="hint">Sentuh layar untuk mulai · Gratis · Hasil langsung masuk Drive</p>
     </div>
   </section>
 
@@ -150,6 +151,15 @@
       <span>Sesi tersimpan di perangkat: <b id="opSessions">0</b></span>
       <button class="btn-ghost small" id="btnResetStats">Reset</button>
     </div>
+
+    <div class="op-row">
+      <span>Logo sekolah di halaman depan</span>
+      <span class="op-row-actions">
+        <button class="btn-ghost small" id="btnPickLogo">Pilih gambar</button>
+        <button class="btn-ghost small" id="btnClearLogo">Hapus</button>
+      </span>
+    </div>
+    <input id="opLogo" type="file" accept="image/*" hidden>
 
     <div class="op-row">
       <span>Kamera</span>
