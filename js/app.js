@@ -12,6 +12,7 @@
   const STATS_KEY = 'pb_natal_stats_v1';
   const SKIP_KEY = 'pb_natal_setup_skipped';
   const LOGO_KEY = 'pb_natal_logo_v1';
+  const LAST_KEY = 'pb_natal_lastupload_v1';
 
   const DEFAULT_CFG = Object.assign({
     endpoint: '',
@@ -116,6 +117,43 @@
 
   function folderUrl() {
     return 'https://drive.google.com/drive/folders/' + encodeURIComponent(cfg.folderId || '');
+  }
+
+  /* =========================================================
+     Catatan upload terakhir (untuk panel operator)
+     ========================================================= */
+
+  function saveLastUpload(data) {
+    try {
+      localStorage.setItem(LAST_KEY, JSON.stringify({
+        time: Date.now(),
+        ok: !!data.ok,
+        name: data.name || '',
+        folderUrl: data.folderUrl || '',
+        url: data.url || '',
+        error: data.error || ''
+      }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function showLastUpload() {
+    const el = $('#opLastUpload');
+    if (!el) return;
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); } catch (e) { last = null; }
+    if (!last) {
+      el.textContent = 'belum ada';
+      el.className = 'op-note';
+      return;
+    }
+    const jam = new Date(last.time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    if (last.ok) {
+      el.className = 'op-note ok';
+      el.textContent = jam + ' · ' + (last.name || 'foto') + ' · berhasil';
+    } else {
+      el.className = 'op-note err';
+      el.textContent = jam + ' · gagal: ' + (last.error || 'tidak diketahui');
+    }
   }
 
   /* =========================================================
@@ -596,6 +634,11 @@
 
     $('#sessionCode').textContent = state.code;
     $('#folderLink').href = folderUrl();
+    const fileLink = $('#fileLink');
+    if (fileLink) {
+      fileLink.hidden = true;
+      fileLink.removeAttribute('href');
+    }
     const qr = $('#qrImg');
     qr.hidden = true;
     qr.onload = function () { qr.hidden = false; };
@@ -619,10 +662,22 @@
         dataUrl: dataUrl
       });
       console.log('Tersimpan:', res);
+      if (res && res.folderUrl) $('#folderLink').href = res.folderUrl;
+      if (res && res.url && fileLink) {
+        fileLink.href = res.url;
+        fileLink.hidden = false;
+      }
+      saveLastUpload({
+        ok: true,
+        name: res && res.name,
+        folderUrl: res && res.folderUrl,
+        url: res && res.url
+      });
       setDoneState('saved', res);
     } catch (err) {
       console.warn('Upload gagal:', err);
       const alasan = String((err && err.message) || err);
+      saveLastUpload({ ok: false, name: filename, error: alasan });
       await window.Drive.queueAdd({
         code: state.code,
         filename: filename,
@@ -703,6 +758,7 @@
     $('#opStatus').textContent = '';
     $('#opStatus').className = 'status';
     $('#operatorModal').classList.add('open');
+    showLastUpload();
     refreshQueueCount();
   }
 
@@ -885,12 +941,26 @@
           dataUrl: c.toDataURL('image/jpeg', 0.9)
         });
         const detik = ((Date.now() - t0) / 1000).toFixed(1);
-        status.textContent = 'Berhasil dalam ' + detik + ' detik. File: ' + res.name;
+        status.textContent = 'Berhasil dalam ' + detik + ' detik. File: ' + res.name + ' ';
+        if (res.folderUrl && /^https:\/\/drive\.google\.com\//.test(res.folderUrl)) {
+          const a = document.createElement('a');
+          a.href = res.folderUrl;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.className = 'link';
+          a.textContent = 'Buka folder';
+          status.appendChild(a);
+        }
+        saveLastUpload({ ok: true, name: res.name, folderUrl: res.folderUrl, url: res.url });
+        showLastUpload();
         toast('Upload ke Drive berhasil (' + detik + ' detik)');
       } catch (err) {
         const detik = ((Date.now() - t0) / 1000).toFixed(1);
+        const alasan = String((err && err.message) || err);
         status.className = 'status err';
-        status.textContent = 'Gagal setelah ' + detik + ' detik: ' + ((err && err.message) || err);
+        status.textContent = 'Gagal setelah ' + detik + ' detik: ' + alasan;
+        saveLastUpload({ ok: false, name: 'foto uji', error: alasan });
+        showLastUpload();
       } finally {
         btn.disabled = false;
       }

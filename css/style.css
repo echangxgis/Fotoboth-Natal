@@ -568,6 +568,18 @@ body {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+#fileLink { display: block; margin-bottom: 8px; }
+#fileLink[hidden] { display: none; }
+
+.op-note {
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: right;
+  max-width: 60%;
+  line-height: 1.4;
+}
+.op-note.ok { color: var(--gold); }
+.op-note.err { color: #ff9a8a; }
 
 /* ---------- modal ---------- */
 .modal {
