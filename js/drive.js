@@ -9,7 +9,7 @@
   const DB_NAME = 'pb_natal_db';
   const DB_VERSION = 1;
   const STORE = 'queue';
-  const TIMEOUT_MS = 60000;
+  const TIMEOUT_MS = 90000;
 
   /* ---------------- IndexedDB (antrean offline) ---------------- */
 
@@ -100,7 +100,7 @@
    * Kirim satu foto ke Apps Script.
    * @returns {Promise<{ok:boolean, url?:string, id?:string, name?:string}>}
    */
-  function upload(opts) {
+  function uploadOnce(opts) {
     const endpoint = String(opts.endpoint || '').trim();
     if (!endpoint) return Promise.reject(new Error('URL Web App belum diatur'));
 
@@ -144,6 +144,21 @@
     return withTimeout(request, TIMEOUT_MS);
   }
 
+  /**
+   * Upload dengan satu kali percobaan ulang untuk gangguan koneksi/timeout.
+   * Kalau server menolak (token salah, folder tidak ada), tidak diulang.
+   */
+  function upload(opts) {
+    return uploadOnce(opts).catch(function (err) {
+      const msg = String((err && err.message) || err);
+      const bisaDiulang = /timeout|Koneksi terlalu lama|Tidak bisa menghubungi|Failed to fetch|NetworkError|Load failed|network/i.test(msg);
+      if (!bisaDiulang) throw err;
+      console.warn('Upload gagal, mencoba sekali lagi:', msg);
+      return new Promise(function (r) { setTimeout(r, 1500); })
+        .then(function () { return uploadOnce(opts); });
+    });
+  }
+
   function ping(endpoint) {
     const url = String(endpoint || '').trim();
     if (!url) return Promise.reject(new Error('URL Web App belum diatur'));
@@ -172,30 +187,38 @@
 
   /* ---------------- antrean ---------------- */
 
-  async function flushQueue(cfg, onProgress) {
-    if (!navigator.onLine) return { sent: 0, failed: 0, total: 0 };
-    const items = await queueAll();
-    let sent = 0, failed = 0;
+  let flushing = false;
 
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      try {
-        await upload({
-          endpoint: cfg.endpoint,
-          token: cfg.token,
-          code: item.code,
-          filename: item.filename,
-          dataUrl: item.dataUrl
-        });
-        await queueDelete(item.id);
-        sent++;
-      } catch (err) {
-        failed++;
-        console.warn('Kirim ulang gagal', item.code, err);
+  async function flushQueue(cfg, onProgress) {
+    if (flushing) return { sent: 0, failed: 0, total: 0, skipped: true };
+    if (!navigator.onLine) return { sent: 0, failed: 0, total: 0 };
+    flushing = true;
+    try {
+      const items = await queueAll();
+      let sent = 0, failed = 0;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        try {
+          await upload({
+            endpoint: cfg.endpoint,
+            token: cfg.token,
+            code: item.code,
+            filename: item.filename,
+            dataUrl: item.dataUrl
+          });
+          await queueDelete(item.id);
+          sent++;
+        } catch (err) {
+          failed++;
+          console.warn('Kirim ulang gagal', item.code, err);
+        }
+        if (typeof onProgress === 'function') onProgress(i + 1, items.length);
       }
-      if (typeof onProgress === 'function') onProgress(i + 1, items.length);
+      return { sent: sent, failed: failed, total: items.length };
+    } finally {
+      flushing = false;
     }
-    return { sent: sent, failed: failed, total: items.length };
   }
 
   window.Drive = {

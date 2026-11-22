@@ -556,8 +556,9 @@
       icon.className = 'done-icon warn';
       icon.textContent = '!';
       title.textContent = 'Foto tersimpan di perangkat';
-      msg.textContent = 'Koneksi ke Drive sedang bermasalah. Foto akan dikirim otomatis nanti. ' +
-        'Tunjukkan kode ini ke panitia: ' + state.code;
+      msg.textContent = 'Foto belum terkirim ke Drive, tapi aman tersimpan di perangkat ini dan akan ' +
+        'dikirim otomatis. Tunjukkan kode ini ke panitia: ' + state.code +
+        (detail ? ' — penyebab: ' + detail : '');
       return;
     }
   }
@@ -621,15 +622,16 @@
       setDoneState('saved', res);
     } catch (err) {
       console.warn('Upload gagal:', err);
+      const alasan = String((err && err.message) || err);
       await window.Drive.queueAdd({
         code: state.code,
         filename: filename,
         dataUrl: dataUrl,
         createdAt: Date.now(),
-        error: String((err && err.message) || err)
+        error: alasan
       });
-      setDoneState('queued');
-      toast('Gagal kirim ke Drive: ' + ((err && err.message) || err), 6000);
+      setDoneState('queued', alasan);
+      toast('Gagal kirim ke Drive: ' + alasan, 8000);
     }
 
     state.busy = false;
@@ -846,6 +848,54 @@
       toast('Penghitung sesi direset');
     });
 
+    $('#btnTestUpload').addEventListener('click', async function () {
+      const btn = this;
+      const status = $('#opStatus');
+      btn.disabled = true;
+      status.className = 'status';
+      status.textContent = 'Mengirim foto uji ke Drive...';
+
+      const c = document.createElement('canvas');
+      c.width = 900;
+      c.height = 600;
+      const x = c.getContext('2d');
+      const g = x.createLinearGradient(0, 0, 900, 600);
+      g.addColorStop(0, '#6d0d18');
+      g.addColorStop(1, '#0f3d2b');
+      x.fillStyle = g;
+      x.fillRect(0, 0, 900, 600);
+      x.textAlign = 'center';
+      x.fillStyle = '#e8c26a';
+      x.font = 'bold 46px Georgia, serif';
+      x.fillText('TES UPLOAD', 450, 268);
+      x.fillStyle = '#f7e7c6';
+      x.font = '20px "Trebuchet MS", sans-serif';
+      x.fillText(new Date().toLocaleString('id-ID'), 450, 320);
+      x.fillStyle = 'rgba(247,231,198,0.6)';
+      x.font = '16px "Trebuchet MS", sans-serif';
+      x.fillText('Photobooth Natal', 450, 356);
+
+      const t0 = Date.now();
+      try {
+        const res = await window.Drive.upload({
+          endpoint: cfg.endpoint,
+          token: cfg.token,
+          code: 'TES',
+          filename: 'tes-upload-' + Date.now() + '.jpg',
+          dataUrl: c.toDataURL('image/jpeg', 0.9)
+        });
+        const detik = ((Date.now() - t0) / 1000).toFixed(1);
+        status.textContent = 'Berhasil dalam ' + detik + ' detik. File: ' + res.name;
+        toast('Upload ke Drive berhasil (' + detik + ' detik)');
+      } catch (err) {
+        const detik = ((Date.now() - t0) / 1000).toFixed(1);
+        status.className = 'status err';
+        status.textContent = 'Gagal setelah ' + detik + ' detik: ' + ((err && err.message) || err);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
     $('#btnTestCam').addEventListener('click', async function () {
       const status = $('#opStatus');
       status.className = 'status';
@@ -911,6 +961,14 @@
       window.Drive.flushQueue(cfg).then(function (res) {
         if (res.sent) toast(res.sent + ' foto tertunda berhasil dikirim');
       });
+
+      // coba kirim ulang antrean tiap 60 detik selama halaman terbuka
+      setInterval(function () {
+        if (!navigator.onLine) return;
+        window.Drive.flushQueue(cfg).then(function (res) {
+          if (res.sent) toast(res.sent + ' foto tertunda berhasil dikirim');
+        });
+      }, 60000);
     }
   }
 

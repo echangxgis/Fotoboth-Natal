@@ -431,6 +431,10 @@ Kalau `img/logo.png` tidak ada, halaman depan tetap jalan tanpa logo.
 | "Tidak bisa menghubungi Apps Script" | Deploy bukan "Anyone" | Ulangi deploy, pilih **Anyone** |
 | "Token tidak cocok" | Token di aplikasi beda dengan Code.gs | Samakan keduanya |
 | Foto masuk tapi tidak bisa dibuka guru | Izin file | Biarkan `MAKE_FILE_PUBLIC = true` di Code.gs |
+| "Foto tersimpan di perangkat" | Upload gagal / koneksi lambat | Foto tetap aman. Cek **Panel Operator → Kirim ulang**, atau tunggu 60 detik (dikirim otomatis) |
+| Upload terasa lama | Foto besar + wifi lambat | Aplikasi mencoba ulang otomatis. Kalau tetap gagal, gunakan wifi yang lebih kuat |
+| Foto tidak kelihatan di Drive | Foto masuk ke subfolder tanggal | Buka folder **Fotoboth → 2026-11-22** (sesuai tanggal acara) |
+| Mau tahu penyebab upload gagal | — | **Panel Operator → Kirim foto uji**. Pesan hasilnya menyebut penyebab persisnya |
 | Layar hitam di kamera | Kamera dipakai aplikasi lain | Tutup Zoom/Teams, lalu muat ulang |
 | Foto blur | Kurang cahaya | Tambah lampu, jangan andalkan lampu ruangan |
 | Antrean menumpuk | Internet lambat | Panel operator → **Kirim ulang** setelah acara |
