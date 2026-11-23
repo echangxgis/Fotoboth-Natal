@@ -43,7 +43,9 @@
     videoTimer: null,
     videoResolve: null,
     videoDiscard: false,
-    video: null
+    video: null,
+    serverVersion: null,
+    videoBlocked: false
   };
 
   let cfg = loadCfg();
@@ -160,6 +162,42 @@
       el.className = 'op-note err';
       el.textContent = jam + ' · gagal: ' + (last.error || 'tidak diketahui');
     }
+  }
+
+  function updateServerNote() {
+    const el = $('#opServer');
+    if (!el) return;
+    if (state.serverVersion === null) {
+      el.className = 'op-note';
+      el.textContent = 'memeriksa...';
+      return;
+    }
+    if (state.serverVersion >= 2) {
+      el.className = 'op-note ok';
+      el.textContent = 'siap · folder Gambar & Video';
+    } else {
+      el.className = 'op-note err';
+      el.textContent = 'versi lama · perbarui Code.gs';
+    }
+  }
+
+  /**
+   * Cek versi Apps Script. Server versi lama belum mengenal folder video,
+   * jadi rekaman ditahan supaya tidak tersimpan dengan nama aneh.
+   */
+  function checkServer() {
+    if (!cfg.endpoint) return;
+    window.Drive.ping(cfg.endpoint).then(function (info) {
+      state.serverVersion = Number(info && info.version) || 0;
+      state.videoBlocked = state.serverVersion < 2;
+      updateServerNote();
+      if (state.videoBlocked && cfg.videoEnabled) {
+        toast('Server Drive masih versi lama. Perbarui Code.gs agar video masuk folder Video.', 9000);
+      }
+    }).catch(function () {
+      state.serverVersion = null;
+      updateServerNote();
+    });
   }
 
   /* =========================================================
@@ -502,6 +540,7 @@
 
   function startRecording() {
     if (!cfg.videoEnabled) return;
+    if (state.videoBlocked) return;
     if (state.recorder || !recordingSupported()) return;
 
     state.video = null;
@@ -968,6 +1007,7 @@
     $('#opStatus').className = 'status';
     $('#operatorModal').classList.add('open');
     showLastUpload();
+    updateServerNote();
     refreshQueueCount();
   }
 
@@ -1092,6 +1132,7 @@
       buildTemplateGrid();
       $('#opStatus').textContent = 'Pengaturan disimpan.';
       toast('Pengaturan operator disimpan');
+      checkServer();
     });
 
     $('#btnOpClose').addEventListener('click', closeOperator);
@@ -1238,6 +1279,7 @@
       try { skipped = !!localStorage.getItem(SKIP_KEY); } catch (e) { /* ignore */ }
       if (!skipped) setTimeout(openSetup, 400);
     } else {
+      checkServer();
       window.Drive.flushQueue(cfg).then(function (res) {
         if (res.sent) toast(res.sent + ' foto tertunda berhasil dikirim');
       });

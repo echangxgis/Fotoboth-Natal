@@ -48,6 +48,8 @@ function doGet(e) {
   return json({
     ok: true,
     service: 'photobooth-natal',
+    version: 2,
+    supports: ['photo', 'video'],
     folderId: ROOT_FOLDER_ID,
     time: new Date().toISOString()
   });
