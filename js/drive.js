@@ -74,14 +74,12 @@
     }).catch(function () { return false; });
   }
 
+  function isPhoto(item) {
+    return (!item.kind || item.kind === 'photo') && /^data:image\/jpeg;/i.test(item.dataUrl || '');
+  }
+
   function queueCount() {
-    return tx('readonly').then(function (store) {
-      return new Promise(function (resolve) {
-        const req = store.count();
-        req.onsuccess = function () { resolve(req.result || 0); };
-        req.onerror = function () { resolve(0); };
-      });
-    }).catch(function () { return 0; });
+    return queueAll().then(function (items) { return items.filter(isPhoto).length; });
   }
 
   /* ---------------- HTTP ---------------- */
@@ -107,16 +105,15 @@
     const base64 = String(opts.dataUrl || '').split(',')[1] || '';
     if (!base64) return Promise.reject(new Error('Data file kosong'));
 
-    if (opts.kind && opts.kind !== 'photo' && opts.kind !== 'gif') {
+    if (opts.kind && opts.kind !== 'photo') {
       return Promise.reject(new Error('Format lama tidak lagi didukung'));
     }
-    const kind = opts.kind === 'gif' ? 'gif' : 'photo';
     const payload = {
       token: opts.token || '',
       code: opts.code || '',
       filename: opts.filename || ('foto_' + Date.now() + '.jpg'),
-      kind: kind,
-      mimeType: kind === 'gif' ? 'image/gif' : (opts.mimeType || 'image/jpeg'),
+      kind: 'photo',
+      mimeType: 'image/jpeg',
       data: base64
     };
 
@@ -154,12 +151,7 @@
    * Kalau server menolak (token salah, folder tidak ada), tidak diulang.
    */
   function upload(opts) {
-    const ready = function () { return opts.kind === 'gif' ? ping(opts.endpoint).then(function (info) {
-      if (!Array.isArray(info.supports) || !info.supports.includes('gif')) {
-        throw new Error('Server Drive belum mendukung GIF. Perbarui Code.gs.');
-      }
-    }) : Promise.resolve(); };
-    const attempt = function () { return ready().then(function () { return uploadOnce(opts); }); };
+    const attempt = function () { return uploadOnce(opts); };
     return attempt().catch(function (err) {
       const msg = String((err && err.message) || err);
       const bisaDiulang = /timeout|Koneksi terlalu lama|Tidak bisa menghubungi|Failed to fetch|NetworkError|Load failed|network/i.test(msg);
@@ -205,7 +197,7 @@
     if (!navigator.onLine) return { sent: 0, failed: 0, total: 0 };
     flushing = true;
     try {
-      const items = await queueAll();
+      const items = (await queueAll()).filter(isPhoto);
       let sent = 0, failed = 0;
 
       for (let i = 0; i < items.length; i++) {

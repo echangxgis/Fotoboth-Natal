@@ -20,13 +20,12 @@
     folderId: '1QmQuBTUXxEei_6-6a5Luqh8wBaRalFAl',
     eventName: 'Natal Sekolah Kristen Kalam Kudus Sentani 2026',
     codePrefix: 'NTL',
-    autoResetMs: 30000,
-    gifEnabled: true,
-    gifSeconds: 4
+    autoResetMs: 30000
   }, window.PB_CONFIG || {});
 
   const TEMPLATES = window.PB.TEMPLATES;
   const renderTemplate = window.PB.renderTemplate;
+  const renderFullHD = window.PB.renderFullHD;
 
   const state = {
     template: null,
@@ -39,12 +38,7 @@
     doneTimer: null,
     idleTimer: null,
     current: 'start',
-    seqId: 0,
-    gifTimer: null,
-    gifFrames: null,
-    gif: null,
-    serverVersion: null,
-    gifBlocked: false
+    seqId: 0
   };
 
   let cfg = loadCfg();
@@ -161,42 +155,6 @@
       el.className = 'op-note err';
       el.textContent = jam + ' · gagal: ' + (last.error || 'tidak diketahui');
     }
-  }
-
-  function updateServerNote() {
-    const el = $('#opServer');
-    if (!el) return;
-    if (state.serverVersion === null) {
-      el.className = 'op-note';
-      el.textContent = 'memeriksa...';
-      return;
-    }
-    if (!state.gifBlocked) {
-      el.className = 'op-note ok';
-      el.textContent = 'siap · folder Gambar & GIF';
-    } else {
-      el.className = 'op-note err';
-      el.textContent = 'versi lama · perbarui Code.gs';
-    }
-  }
-
-  /**
-   * Cek versi Apps Script. Server versi lama belum mengenal folder GIF,
-   * jadi rekaman ditahan supaya tidak tersimpan dengan nama aneh.
-   */
-  function checkServer() {
-    if (!cfg.endpoint) return;
-    window.Drive.ping(cfg.endpoint).then(function (info) {
-      state.serverVersion = Number(info && info.version) || 0;
-      state.gifBlocked = !(info && Array.isArray(info.supports) && info.supports.includes('gif'));
-      updateServerNote();
-      if (state.gifBlocked && cfg.gifEnabled) {
-        toast('Server Drive masih versi lama. Perbarui Code.gs agar GIF masuk folder GIF.', 9000);
-      }
-    }).catch(function () {
-      state.serverVersion = null;
-      updateServerNote();
-    });
   }
 
   /* =========================================================
@@ -512,59 +470,6 @@
     return c;
   }
 
-  /* =========================================================
-     GIF animasi saat pengambilan foto
-     ========================================================= */
-
-  const GIF_DELAY = 160;
-
-  function startGif() {
-    if (!cfg.gifEnabled || !window.PB.encodeGif) return;
-    const camera = $('#video');
-    if (!camera.videoWidth || !camera.videoHeight) return;
-    const canvas = document.createElement('canvas');
-    const scale = Math.min(1, 360 / Math.max(camera.videoWidth, camera.videoHeight));
-    canvas.width = Math.max(1, Math.round(camera.videoWidth * scale));
-    canvas.height = Math.max(1, Math.round(camera.videoHeight * scale));
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const frames = [];
-    const limit = Math.ceil(Math.max(3, Math.min(8, Number(cfg.gifSeconds) || 4)) * 1000 / GIF_DELAY);
-    function capture() {
-      try {
-        ctx.save();
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        try { ctx.drawImage(camera, 0, 0, canvas.width, canvas.height); }
-        finally { ctx.restore(); }
-        frames.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-        if (frames.length >= limit) clearInterval(state.gifTimer);
-      } catch (err) {
-        clearInterval(state.gifTimer);
-        console.warn('Gagal mengambil frame GIF:', err);
-      }
-    }
-    state.gifFrames = frames;
-    state.gifTimer = setInterval(capture, GIF_DELAY);
-    capture();
-  }
-
-  function stopGif(discard) {
-    clearInterval(state.gifTimer);
-    state.gifTimer = null;
-    const frames = state.gifFrames;
-    state.gifFrames = null;
-    if (!discard && frames && frames.length > 1) state.gif = frames;
-  }
-
-  function blobToDataUrl(blob) {
-    return new Promise(function (resolve, reject) {
-      const reader = new FileReader();
-      reader.onload = function () { resolve(String(reader.result || '')); };
-      reader.onerror = function () { reject(new Error('GIF tidak bisa dibaca')); };
-      reader.readAsDataURL(blob);
-    });
-  }
-
   function buildDots(total, filled) {
     const wrap = $('#shotDots');
     wrap.innerHTML = '';
@@ -607,7 +512,6 @@
     const seqId = ++state.seqId;
     state.busy = true;
     state.captures = [];
-    state.gif = null;
     show('capture');
     hideCameraError();
     buildDots(tpl.shots, 0);
@@ -626,8 +530,6 @@
     await sleep(800);
     if (seqId !== state.seqId) return;
 
-    // mulai mengambil frame GIF selama sesi foto berlangsung
-    startGif();
 
     for (let i = 0; i < tpl.shots; i++) {
       if (seqId !== state.seqId) return;
@@ -649,8 +551,6 @@
 
     if (seqId !== state.seqId) return;
 
-    // hentikan pengambilan frame, simpan hasilnya untuk diunggah bersama foto
-    stopGif();
     if (seqId !== state.seqId) return;
 
     renderReview();
@@ -661,8 +561,6 @@
   function cancelSequence() {
     state.seqId += 1;
     state.busy = false;
-    stopGif(true);
-    state.gif = null;
     hideCameraError();
     $('#countdown').classList.remove('show', 'pop');
     $('#countdown').textContent = '';
@@ -673,7 +571,7 @@
      ========================================================= */
 
   function renderReview() {
-    renderTemplate($('#previewCanvas'), state.template, state.captures, {
+    renderFullHD($('#previewCanvas'), state.template, state.captures, {
       eventName: cfg.eventName,
       code: ''
     });
@@ -726,7 +624,7 @@
     const finalCanvas = document.createElement('canvas');
     state.code = nextCode();
 
-    renderTemplate(finalCanvas, tpl, state.captures, {
+    renderFullHD(finalCanvas, tpl, state.captures, {
       eventName: cfg.eventName,
       code: state.code
     });
@@ -746,12 +644,6 @@
     if (fileLink) {
       fileLink.hidden = true;
       fileLink.removeAttribute('href');
-    }
-    const doneGif = $('#doneGif');
-    if (doneGif) {
-      doneGif.hidden = true;
-      doneGif.className = 'done-gif';
-      doneGif.textContent = '';
     }
     const qr = $('#qrImg');
     qr.hidden = true;
@@ -807,75 +699,6 @@
     $('#btnApprove').disabled = false;
     startDoneTimer();
 
-    // GIF diunggah setelah foto, tidak menahan layar hasil
-    const frames = state.gif;
-    state.gif = null;
-    if (frames && cfg.gifEnabled) {
-      sendGif(frames, tpl, state.code, state.seqId);
-    }
-  }
-
-  /**
-   * Kirim GIF animasi sesi foto. Kalau gagal, masuk antrean seperti foto.
-   */
-  async function sendGif(frames, tpl, code, seq) {
-    const note = $('#doneGif');
-    const filename = code + '_' + tpl.id + '.gif';
-    const masihSesiIni = function () { return state.seqId === seq && state.code === code; };
-
-    if (note && masihSesiIni()) {
-      note.hidden = false;
-      note.className = 'done-gif';
-      note.textContent = 'Mengirim GIF animasi...';
-    }
-
-    let dataUrl = '';
-    try {
-      dataUrl = await blobToDataUrl(window.PB.encodeGif(frames, GIF_DELAY));
-      const res = await window.Drive.upload({
-        endpoint: cfg.endpoint,
-        token: cfg.token,
-        code: code,
-        filename: filename,
-        dataUrl: dataUrl,
-        kind: 'gif',
-        mimeType: 'image/gif'
-      });
-      console.log('GIF tersimpan:', res);
-      if (note && masihSesiIni()) {
-        note.className = 'done-gif ok';
-        note.textContent = 'GIF animasi sesi ini tersimpan di folder GIF. ';
-        if (res && res.folderUrl) {
-          const a = document.createElement('a');
-          a.href = res.folderUrl;
-          a.target = '_blank';
-          a.rel = 'noopener';
-          a.className = 'link';
-          a.textContent = 'Buka folder GIF';
-          note.appendChild(a);
-        }
-      }
-    } catch (err) {
-      const alasan = String((err && err.message) || err);
-      console.warn('Upload GIF gagal:', err);
-      if (dataUrl) {
-        await window.Drive.queueAdd({
-          code: code,
-          filename: filename,
-          dataUrl: dataUrl,
-          kind: 'gif',
-          mimeType: 'image/gif',
-          createdAt: Date.now(),
-          error: alasan
-        });
-      }
-      if (note && masihSesiIni()) {
-        note.className = 'done-gif warn';
-        note.textContent = dataUrl
-          ? 'GIF belum terkirim, akan dikirim otomatis nanti.'
-          : 'GIF tidak bisa disiapkan di perangkat ini.';
-      }
-    }
   }
 
   function resetSession() {
@@ -885,7 +708,6 @@
     state.captures = [];
     state.code = '';
     state.dataUrl = '';
-    state.gif = null;
     state.busy = false;
     $('#btnApprove').disabled = false;
     const rc = $('#resultCanvas');
@@ -939,15 +761,11 @@
     $('#opEndpoint').value = cfg.endpoint || '';
     $('#opToken').value = cfg.token || '';
     $('#opFolder').value = cfg.folderId || '';
-    $('#opGif').checked = !!cfg.gifEnabled;
-    $('#opGifSeconds').value = String(cfg.gifSeconds || 4);
-    $('#opGifSeconds').disabled = !$('#opGif').checked;
     $('#opSessions').textContent = String(loadStats().count);
     $('#opStatus').textContent = '';
     $('#opStatus').className = 'status';
     $('#operatorModal').classList.add('open');
     showLastUpload();
-    updateServerNote();
     refreshQueueCount();
   }
 
@@ -994,12 +812,6 @@
 
     $('#btnOperator').addEventListener('click', openOperator);
 
-    const opGif = $('#opGif');
-    if (opGif) {
-      opGif.addEventListener('change', function () {
-        $('#opGifSeconds').disabled = !this.checked;
-      });
-    }
 
     // logo sekolah di halaman depan
     const logoInput = $('#opLogo');
@@ -1074,13 +886,10 @@
         endpoint: $('#opEndpoint').value.trim(),
         token: $('#opToken').value.trim(),
         folderId: match ? match[1] : folderInput,
-        gifEnabled: $('#opGif').checked,
-        gifSeconds: Number($('#opGifSeconds').value) || 4
       });
       buildTemplateGrid();
       $('#opStatus').textContent = 'Pengaturan disimpan.';
       toast('Pengaturan operator disimpan');
-      checkServer();
     });
 
     $('#btnOpClose').addEventListener('click', closeOperator);
@@ -1227,7 +1036,6 @@
       try { skipped = !!localStorage.getItem(SKIP_KEY); } catch (e) { /* ignore */ }
       if (!skipped) setTimeout(openSetup, 400);
     } else {
-      checkServer();
       window.Drive.flushQueue(cfg).then(function (res) {
         if (res.sent) toast(res.sent + ' foto tertunda berhasil dikirim');
       });

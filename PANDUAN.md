@@ -140,7 +140,7 @@ https://script.google.com/macros/s/AKfycbx.../exec?ping=1
 Harus muncul tulisan seperti:
 
 ```json
-{"ok":true,"service":"photobooth-natal","version":3,"supports":["photo","gif"],"folderId":"1Qm...","time":"2026-11-20T..."}
+{"ok":true,"service":"photobooth-natal","version":3,"supports":["photo"],"folderId":"1Qm...","time":"2026-11-20T..."}
 ```
 
 Kalau muncul halaman login Google, berarti akses deploy belum "Anyone". Ulangi langkah 5.
@@ -165,7 +165,7 @@ Kalau gagal, pesan errornya akan menunjukkan penyebabnya (token salah, akses buk
 
 ### Memperbarui Apps Script (kalau kode berubah)
 
-Fitur GIF memerlukan `Code.gs` dengan protokol versi 3 (`photo` dan `gif`). Sebelum mengganti kode, catat token dan pengaturan khusus Anda, lalu terapkan kembali sebelum menyimpan. Versi 3 tidak menerima unggahan `kind: 'video'`; file lama di folder `Video` tidak dipindahkan.
+Endpoint hanya menerima unggahan foto JPG. Sebelum mengganti kode, catat token, ID folder Drive, dan pengaturan khusus Anda, lalu terapkan kembali sebelum menyimpan. File lama di Drive tidak dipindahkan.
 
 1. Buka <https://script.google.com> dan buka project `Photobooth Natal`
 2. Di editor, pilih semua isi `Code.gs` (**Ctrl+A**), hapus
@@ -178,9 +178,9 @@ Fitur GIF memerlukan `Code.gs` dengan protokol versi 3 (`photo` dan `gif`). Sebe
 
 **Jangan** membuat deployment baru. Memperbarui deployment yang sama menjaga URL `/exec` tetap sama, jadi aplikasi tidak perlu diubah.
 
-Setelah itu buka `...?ping=1` dan pastikan respons menampilkan `"version":3` dan `"supports":["photo","gif"]`. Tes lewat **Panel Operator → Kirim foto uji**, lalu jalankan satu sesi dengan GIF aktif dan cek kedua hasilnya di Drive.
+Setelah itu buka `...?ping=1` dan pastikan respons menampilkan `"version":3` dan `"supports":["photo"]`. Tes lewat **Panel Operator → Kirim foto uji**, lalu jalankan satu sesi dan cek file JPG di Drive.
 
-Folder `Gambar` dan `GIF` dibuat otomatis saat file pertama masuk. Tidak perlu membuatnya manual.
+Folder `Gambar` dibuat otomatis saat foto pertama masuk. Tidak perlu membuatnya manual.
 
 
 ---
@@ -325,7 +325,7 @@ start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk http://
 - [ ] `serve.ps1` sudah jalan
 - [ ] **Tes Koneksi** di panel operator berhasil
 - [ ] Tes 1 foto, cek hasilnya di Drive
-- [ ] Fitur GIF sudah diatur (nyala/mati) dan folder `GIF` sudah dicek jika fitur aktif
+- [ ] Pastikan file di folder `Gambar` berformat JPG dan ukurannya sesuai orientasi
 - [ ] Lampu sudah dinyalakan dan diarahkan ke wajah
 - [ ] Background sudah dipasang
 - [ ] Notifikasi Windows dimatikan (Mode Fokus)
@@ -340,10 +340,9 @@ Klik ikon ⚙ di kanan atas, atau tekan **Ctrl+Shift+O**.
 Isinya:
 
 - Ubah nama acara, URL, token, folder
-- Pengaturan GIF: hidupkan atau matikan pembuatan GIF tiap sesi
 - **Tes kamera** untuk memastikan resolusi
-- **Antrean belum terkirim**: jumlah foto dan GIF yang gagal dikirim
-- **Kirim ulang**: mengirim ulang semua foto dan GIF di antrean
+- **Antrean belum terkirim**: jumlah foto yang gagal dikirim
+- **Kirim ulang**: mengirim ulang semua foto di antrean
 - **Sesi tersimpan**: jumlah foto hari ini
 
 ---
@@ -353,69 +352,39 @@ Isinya:
 ```
 Anak pilih bingkai
       ↓
-Kamera ambil 1–4 foto (sesuai bingkai)
+Kamera mengambil foto sesuai bingkai
       ↓
 Canvas menggabungkan foto + dekorasi + kode sesi
       ↓
-JPEG dikirim ke Apps Script (POST)  →  folder Gambar
+Aplikasi mengekspor JPG pada ukuran akhir sesuai orientasi
       ↓
-GIF animasi ikut dikirim (kalau fitur GIF aktif)  →  folder GIF
-      ↓
-Apps Script menyimpan ke folder Drive
+Apps Script menerima JPG (POST) dan menyimpannya di folder Gambar
       ↓
 Aplikasi menampilkan kode + QR menuju folder
 ```
 
-Kalau internet mati, foto dan GIF **tetap tersimpan di perangkat** (IndexedDB) dan otomatis dikirim saat koneksi kembali. Tidak ada yang hilang.
+Kalau internet mati, foto **tetap tersimpan di perangkat** (IndexedDB) dan otomatis dikirim saat koneksi kembali.
 
-### Penamaan file
+### Ukuran akhir JPG
 
-Foto:
+Semua hasil sesi diekspor sebagai JPG dengan ukuran berikut (lebar × tinggi):
 
-```
-NTL-001_strip3.jpg
-NTL-002_square.jpg
-```
+- **Landscape**, termasuk bingkai persegi: tepat **1920×1080 piksel**.
+- **Portrait**: tepat **1080×1920 piksel**.
 
-GIF animasi:
+Jika rasio bingkai berbeda dari rasio ukuran akhir, aplikasi menambahkan ruang kosong (padding) agar bingkai tetap utuh, tanpa dipotong atau diregangkan.
 
-```
-NTL-001_strip3.gif
-NTL-002_square.gif
-```
+### Penamaan file dan folder
 
-Foto dan video dipisah ke folder masing-masing, lalu dipecah lagi per tanggal:
+Nama file diawali kode sesi. Secara bawaan, foto disimpan dalam subfolder per tanggal di `Gambar`:
 
 ```
 Fotoboth/
-├─ Gambar/
-│  └─ 2026-12-15/
-│     ├─ NTL-001_strip3.jpg
-│     └─ NTL-002_square.jpg
-└─ GIF/
+└─ Gambar/
    └─ 2026-12-15/
-      ├─ NTL-001_strip3.gif
-      └─ NTL-002_square.gif
+      ├─ NTL-001_strip3.jpg
+      └─ NTL-002_square.jpg
 ```
-
-Kode `NTL-001` dipakai untuk foto dan GIF-nya, jadi mudah dicocokkan.
-
----
-
-## GIF Animasi Sesi Foto
-
-Selain foto, aplikasi bisa membuat GIF animasi tanpa suara. GIF dikirim sebagai `kind: 'gif'` dengan jenis MIME `image/gif` dan disimpan dengan ekstensi `.gif`.
-
-### Menyalakan atau mematikan
-
-1. Buka **Panel Operator** lewat ikon **⚙** atau **Ctrl+Shift+O**.
-2. Nyalakan atau matikan opsi GIF, lalu klik **Simpan**.
-
-Pengaturan ini tersimpan di perangkat itu saja. Kalau memakai beberapa laptop, atur di masing-masing.
-
-### Kalau GIF gagal dikirim
-
-GIF masuk antrean yang sama dengan foto dan dikirim ulang saat koneksi membaik. Anda juga bisa memilih **Panel Operator → Kirim ulang**. Jika folder `GIF` belum muncul setelah sesi uji, pastikan endpoint melaporkan protokol versi 3. Lihat **Bagian 1 → Memperbarui Apps Script**.
 
 ---
 
@@ -425,14 +394,14 @@ Layar **Pilih Bingkai** dibagi menjadi tiga kelompok.
 
 ### Strip Photobooth
 
-| Bingkai | Ukuran | Jumlah foto |
+| Bingkai | Ukuran desain (sebelum ekspor JPG) | Jumlah foto |
 |---|---|---|
 | Strip Klasik | 1080×3240 (1:3) | 3 |
 | Strip Empat | 1080×3240 (1:3) | 4 |
 
 ### Story & Reels
 
-| Bingkai | Ukuran | Jumlah foto |
+| Bingkai | Ukuran desain (sebelum ekspor JPG) | Jumlah foto |
 |---|---|---|
 | Story Tunggal | 1080×1920 (9:16) | 1 |
 | Story Kolase 3 Foto | 1080×1920 (9:16) | 3 |
@@ -445,7 +414,7 @@ Teks penting sengaja diletakkan di area aman, jadi tidak tertutup tombol Instagr
 
 ### Bingkai Besar
 
-| Bingkai | Ukuran | Jumlah foto |
+| Bingkai | Ukuran desain (sebelum ekspor JPG) | Jumlah foto |
 |---|---|---|
 | Bingkai Lebar | 1920×1280 (3:2, landscape dengan panel ucapan) | 1 |
 | Landscape Teks Timbul | 1920×1280 (3:2, teks langsung di atas foto) | 1 |
@@ -492,8 +461,7 @@ Kalau `img/logo.png` tidak ada, halaman depan tetap jalan tanpa logo.
 | "Foto tersimpan di perangkat" | Upload gagal / koneksi lambat | Foto tetap aman. Cek **Panel Operator → Kirim ulang**, atau tunggu 60 detik (dikirim otomatis) |
 | Upload terasa lama | Foto besar + wifi lambat | Aplikasi mencoba ulang otomatis. Kalau tetap gagal, gunakan wifi yang lebih kuat |
 | Foto tidak kelihatan di Drive | Foto masuk ke subfolder tanggal | Buka folder **Fotoboth → Gambar → 2026-11-22** (sesuai tanggal acara) |
-| GIF tidak ada di Drive atau berakhiran `.gif.jpg` | Endpoint masih memakai protokol lama | Cek `?ping=1`; jika belum versi 3, perbarui `Code.gs` lewat **Manage deployments → New version** |
-| GIF tidak dibuat | Fitur GIF dimatikan | Nyalakan opsi GIF di Panel Operator, simpan, lalu coba sesi baru |
+| Endpoint masih melaporkan dukungan selain `photo` | Deployment masih memakai kode lama | Cek `?ping=1` dan ikuti langkah **Memperbarui Apps Script** |
 | Mau tahu penyebab upload gagal | — | **Panel Operator → Kirim foto uji**. Pesan hasilnya menyebut penyebab persisnya |
 | Layar hitam di kamera | Kamera dipakai aplikasi lain | Tutup Zoom/Teams, lalu muat ulang |
 | Foto blur | Kurang cahaya | Tambah lampu, jangan andalkan lampu ruangan |
