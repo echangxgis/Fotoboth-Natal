@@ -433,7 +433,7 @@ Video masuk antrean yang sama dengan foto. Layar hasil menulis **"Video belum te
 ### Syarat
 
 - **Chrome atau Edge versi baru.** Firefox dan Safari biasanya juga bisa, tapi formatnya kadang berbeda.
-- **Code.gs terbaru harus sudah di-deploy.** Versi lama belum mengenal folder `Gambar` dan `Video`. Lihat bagian **Memperbarui Apps Script** di bawah.
+- **Code.gs terbaru harus sudah di-deploy.** Versi lama belum mengenal folder `Gambar` dan `Video`. Lihat **Bagian 1 → Memperbarui Apps Script**.
 
 ---
 
