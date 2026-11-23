@@ -11,7 +11,7 @@
    ========================================================= */
 
 window.PB_CONFIG = {
-  endpoint: 'https://script.google.com/macros/s/AKfycbxWMrtRvqz6egZDASDXOLRTbLxGo68Aj4kr2SGBfUtzPi8kNjBybtrvWiOnrD_wAxFG/exec',
+  endpoint: 'https://script.google.com/macros/s/AKfycbytghjNmRwgjaYGEwgmAbs_xRFzKYt2hx-34sQQr7YZ20nxSrwm-O470WN_S0rB32hdYg/exec',
   token: 'NTL-7f3a9c2e',
   folderId: '1QmQuBTUXxEei_6-6a5Luqh8wBaRalFAl',
   eventName: 'Natal Sekolah Kristen Kalam Kudus Sentani 2026',
