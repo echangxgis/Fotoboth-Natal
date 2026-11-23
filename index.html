@@ -83,6 +83,7 @@
       <div class="done-icon" id="doneIcon">✓</div>
       <h2 id="doneTitle">Foto tersimpan!</h2>
       <p id="doneMsg">Terima kasih sudah berfoto.</p>
+      <p id="doneVideo" class="done-video" hidden></p>
       <div class="result-card">
         <canvas id="resultCanvas"></canvas>
         <div class="result-meta">
@@ -142,6 +143,11 @@
 
     <label for="opFolder">ID Folder Drive</label>
     <input id="opFolder" type="text" autocomplete="off">
+
+    <div class="op-row">
+      <span>Rekam video singkat tiap sesi</span>
+      <input id="opVideo" type="checkbox">
+    </div>
 
     <div class="op-row">
       <span>Antrean belum terkirim: <b id="opQueue">0</b></span>

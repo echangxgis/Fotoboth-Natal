@@ -163,6 +163,25 @@ Kalau muncul tulisan **OK** dan file `tes-koneksi.jpg` ada di Drive, berarti sem
 
 Kalau gagal, pesan errornya akan menunjukkan penyebabnya (token salah, akses bukan "Anyone", atau URL salah).
 
+### Memperbarui Apps Script (kalau kode berubah)
+
+Fitur video memakai `Code.gs` versi baru. Kalau project Apps Script Anda masih versi lama, foto tetap masuk, tetapi video belum dipisah ke folder `Video`.
+
+1. Buka <https://script.google.com> dan buka project `Photobooth Natal`
+2. Di editor, pilih semua isi `Code.gs` (**Ctrl+A**), hapus
+3. Tempel seluruh isi `apps-script/Code.gs` yang terbaru
+4. Tekan **Ctrl+S**
+5. Klik **Deploy** → **Manage deployments**
+6. Klik ikon pensil pada deployment yang aktif
+7. Pada **Version**, pilih **New version**
+8. Klik **Deploy**
+
+**Jangan** membuat deployment baru. Memperbarui deployment yang sama menjaga URL `/exec` tetap sama, jadi aplikasi tidak perlu diubah.
+
+Setelah itu buka `...?ping=1` untuk memastikan server masih hidup, lalu tes lewat **Panel Operator → Kirim foto uji**.
+
+Folder `Gambar` dan `Video` dibuat otomatis saat file pertama masuk. Tidak perlu membuatnya manual.
+
 
 ---
 
@@ -306,6 +325,7 @@ start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk http://
 - [ ] `serve.ps1` sudah jalan
 - [ ] **Tes Koneksi** di panel operator berhasil
 - [ ] Tes 1 foto, cek hasilnya di Drive
+- [ ] Fitur video sudah diatur (nyala/mati) dan folder `Video` sudah dicek
 - [ ] Lampu sudah dinyalakan dan diarahkan ke wajah
 - [ ] Background sudah dipasang
 - [ ] Notifikasi Windows dimatikan (Mode Fokus)
@@ -320,9 +340,10 @@ Klik ikon ⚙ di kanan atas, atau tekan **Ctrl+Shift+O**.
 Isinya:
 
 - Ubah nama acara, URL, token, folder
+- **Rekam video singkat tiap sesi**: hidupkan atau matikan perekaman video
 - **Tes kamera** untuk memastikan resolusi
-- **Antrean belum terkirim**: jumlah foto yang gagal dikirim
-- **Kirim ulang**: mengirim ulang semua foto di antrean
+- **Antrean belum terkirim**: jumlah foto dan video yang gagal dikirim
+- **Kirim ulang**: mengirim ulang semua foto dan video di antrean
 - **Sesi tersimpan**: jumlah foto hari ini
 
 ---
@@ -336,32 +357,83 @@ Kamera ambil 1–4 foto (sesuai bingkai)
       ↓
 Canvas menggabungkan foto + dekorasi + kode sesi
       ↓
-JPEG dikirim ke Apps Script (POST)
+JPEG dikirim ke Apps Script (POST)  →  folder Gambar
+      ↓
+Video singkat ikut dikirim (kalau fitur video aktif)  →  folder Video
       ↓
 Apps Script menyimpan ke folder Drive
       ↓
 Aplikasi menampilkan kode + QR menuju folder
 ```
 
-Kalau internet mati, foto **tetap tersimpan di perangkat** (IndexedDB) dan otomatis dikirim saat koneksi kembali. Tidak ada foto yang hilang.
+Kalau internet mati, foto dan video **tetap tersimpan di perangkat** (IndexedDB) dan otomatis dikirim saat koneksi kembali. Tidak ada yang hilang.
 
 ### Penamaan file
+
+Foto:
 
 ```
 NTL-001_strip3.jpg
 NTL-002_square.jpg
 ```
 
-Subfolder otomatis per tanggal:
+Video singkat:
 
 ```
-Folder Natal/
-└─ 2026-12-15/
-   ├─ NTL-001_strip3.jpg
-   └─ NTL-002_square.jpg
+NTL-001_strip3.webm
+NTL-002_square.webm
 ```
 
-Kode `NTL-001` juga muncul di layar, jadi anak bisa mencari fotonya sendiri di folder.
+Foto dan video dipisah ke folder masing-masing, lalu dipecah lagi per tanggal:
+
+```
+Fotoboth/
+├─ Gambar/
+│  └─ 2026-12-15/
+│     ├─ NTL-001_strip3.jpg
+│     └─ NTL-002_square.jpg
+└─ Video/
+   └─ 2026-12-15/
+      ├─ NTL-001_strip3.webm
+      └─ NTL-002_square.webm
+```
+
+Kode `NTL-001` dipakai untuk foto dan videonya, jadi mudah dicocokkan.
+
+---
+
+## Video Singkat Sesi Foto
+
+Selain foto, aplikasi bisa merekam video pendek **selama anak berpose**. Videonya tanpa suara, dimulai saat hitungan mundur dan berhenti setelah foto terakhir.
+
+### Menyalakan atau mematikan
+
+1. Klik ikon **⚙** di kanan atas (atau **Ctrl+Shift+O**)
+2. Cari baris **Rekam video singkat tiap sesi**
+3. Centang untuk menyalakan, kosongkan untuk mematikan
+4. Klik **Simpan**
+
+Pengaturan ini tersimpan di perangkat itu saja. Kalau memakai beberapa laptop, atur di masing-masing.
+
+### Batas dan ukuran
+
+| Hal | Nilai |
+|---|---|
+| Panjang maksimal | 25 detik |
+| Resolusi | Mengikuti kamera (biasanya 1280×960) |
+| Ukuran file | ±2–5 MB per sesi |
+| Suara | Tidak direkam |
+
+Kalau anak terlalu lama di layar periksa, rekaman sudah berhenti lebih dulu — jadi videonya tetap singkat.
+
+### Kalau video gagal dikirim
+
+Video masuk antrean yang sama dengan foto. Layar hasil menulis **"Video belum terkirim, akan dikirim otomatis nanti."** Tidak perlu panik: video aman di perangkat dan dikirim otomatis saat koneksi membaik, atau lewat **Panel Operator → Kirim ulang**.
+
+### Syarat
+
+- **Chrome atau Edge versi baru.** Firefox dan Safari biasanya juga bisa, tapi formatnya kadang berbeda.
+- **Code.gs terbaru harus sudah di-deploy.** Versi lama belum mengenal folder `Gambar` dan `Video`. Lihat bagian **Memperbarui Apps Script** di bawah.
 
 ---
 
@@ -433,7 +505,10 @@ Kalau `img/logo.png` tidak ada, halaman depan tetap jalan tanpa logo.
 | Foto masuk tapi tidak bisa dibuka guru | Izin file | Biarkan `MAKE_FILE_PUBLIC = true` di Code.gs |
 | "Foto tersimpan di perangkat" | Upload gagal / koneksi lambat | Foto tetap aman. Cek **Panel Operator → Kirim ulang**, atau tunggu 60 detik (dikirim otomatis) |
 | Upload terasa lama | Foto besar + wifi lambat | Aplikasi mencoba ulang otomatis. Kalau tetap gagal, gunakan wifi yang lebih kuat |
-| Foto tidak kelihatan di Drive | Foto masuk ke subfolder tanggal | Buka folder **Fotoboth → 2026-11-22** (sesuai tanggal acara) |
+| Foto tidak kelihatan di Drive | Foto masuk ke subfolder tanggal | Buka folder **Fotoboth → Gambar → 2026-11-22** (sesuai tanggal acara) |
+| Video tidak ada di Drive | Code.gs lama belum mendukung folder video | Tempel ulang `Code.gs` terbaru lalu **Manage deployments → New version** |
+| Nama video berakhiran `.webm.jpg` | Code.gs lama menambahkan `.jpg` ke semua file | Sama: perbarui `Code.gs` dan deploy versi baru |
+| Video tidak direkam | Fitur video dimatikan, atau browser tidak mendukung | Panel Operator → centang **Rekam video singkat tiap sesi**, pakai Chrome/Edge terbaru |
 | Mau tahu penyebab upload gagal | — | **Panel Operator → Kirim foto uji**. Pesan hasilnya menyebut penyebab persisnya |
 | Layar hitam di kamera | Kamera dipakai aplikasi lain | Tutup Zoom/Teams, lalu muat ulang |
 | Foto blur | Kurang cahaya | Tambah lampu, jangan andalkan lampu ruangan |

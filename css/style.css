@@ -678,6 +678,25 @@ body {
 .op-row b { color: var(--gold-soft); }
 .op-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+.modal-card input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.done-wrap > .done-video {
+  margin: -6px 0 16px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.done-video.ok { color: var(--gold); }
+.done-video.warn { color: #e8a04a; }
+.done-video[hidden] { display: none; }
+
 .status {
   margin: 14px 0 0;
   font-size: 13px;

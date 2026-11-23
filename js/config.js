@@ -16,5 +16,6 @@ window.PB_CONFIG = {
   folderId: '1QmQuBTUXxEei_6-6a5Luqh8wBaRalFAl',
   eventName: 'Natal Sekolah Kristen Kalam Kudus Sentani 2026',
   codePrefix: 'NTL',
-  autoResetMs: 30000
+  autoResetMs: 30000,
+  videoEnabled: true
 };

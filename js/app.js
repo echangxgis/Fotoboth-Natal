@@ -20,7 +20,8 @@
     folderId: '1QmQuBTUXxEei_6-6a5Luqh8wBaRalFAl',
     eventName: 'Natal Sekolah Kristen Kalam Kudus Sentani 2026',
     codePrefix: 'NTL',
-    autoResetMs: 30000
+    autoResetMs: 30000,
+    videoEnabled: true
   }, window.PB_CONFIG || {});
 
   const TEMPLATES = window.PB.TEMPLATES;
@@ -37,7 +38,12 @@
     doneTimer: null,
     idleTimer: null,
     current: 'start',
-    seqId: 0
+    seqId: 0,
+    recorder: null,
+    videoTimer: null,
+    videoResolve: null,
+    videoDiscard: false,
+    video: null
   };
 
   let cfg = loadCfg();
@@ -468,6 +474,121 @@
     return c;
   }
 
+  /* =========================================================
+     Video singkat saat pengambilan foto
+     ========================================================= */
+
+  const VIDEO_MAX_MS = 25000;
+  const VIDEO_BITRATE = 1500000;
+
+  function recordingSupported() {
+    return !!(window.MediaRecorder && state.stream);
+  }
+
+  function pickVideoMime() {
+    const list = [
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm',
+      'video/mp4'
+    ];
+    for (let i = 0; i < list.length; i++) {
+      if (window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported(list[i])) {
+        return list[i];
+      }
+    }
+    return '';
+  }
+
+  function startRecording() {
+    if (!cfg.videoEnabled) return;
+    if (state.recorder || !recordingSupported()) return;
+
+    state.video = null;
+    state.videoDiscard = false;
+    const mimeType = pickVideoMime();
+    const chunks = [];
+    let rec;
+
+    try {
+      rec = mimeType
+        ? new MediaRecorder(state.stream, { mimeType: mimeType, videoBitsPerSecond: VIDEO_BITRATE })
+        : new MediaRecorder(state.stream, { videoBitsPerSecond: VIDEO_BITRATE });
+    } catch (err) {
+      console.warn('Video tidak bisa direkam:', err);
+      return;
+    }
+
+    const actual = rec.mimeType || mimeType || 'video/webm';
+
+    rec.ondataavailable = function (e) {
+      if (e.data && e.data.size) chunks.push(e.data);
+    };
+    rec.onstop = function () {
+      state.recorder = null;
+      clearTimeout(state.videoTimer);
+      state.videoTimer = null;
+
+      const blob = new Blob(chunks, { type: actual });
+      const result = blob.size > 2000 ? { blob: blob, mimeType: actual } : null;
+      state.video = state.videoDiscard ? null : result;
+
+      const resolve = state.videoResolve;
+      state.videoResolve = null;
+      if (resolve) resolve(state.video);
+    };
+
+    state.recorder = rec;
+    try {
+      rec.start(1000);
+    } catch (err) {
+      console.warn('Perekaman gagal dimulai:', err);
+      state.recorder = null;
+      return;
+    }
+
+    clearTimeout(state.videoTimer);
+    state.videoTimer = setTimeout(function () { stopRecording(); }, VIDEO_MAX_MS);
+  }
+
+  function stopRecording(discard) {
+    clearTimeout(state.videoTimer);
+    state.videoTimer = null;
+    state.videoDiscard = !!discard;
+    if (discard) state.video = null;
+
+    const rec = state.recorder;
+    if (!rec) {
+      return Promise.resolve(null);
+    }
+
+    return new Promise(function (resolve) {
+      state.videoResolve = resolve;
+      try {
+        if (rec.state !== 'inactive') {
+          rec.stop();
+        } else {
+          state.recorder = null;
+          state.videoResolve = null;
+          resolve(null);
+        }
+      } catch (err) {
+        state.recorder = null;
+        state.videoResolve = null;
+        resolve(null);
+      }
+    });
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { reject(new Error('Video tidak bisa dibaca')); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
   function buildDots(total, filled) {
     const wrap = $('#shotDots');
     wrap.innerHTML = '';
@@ -510,6 +631,7 @@
     const seqId = ++state.seqId;
     state.busy = true;
     state.captures = [];
+    state.video = null;
     show('capture');
     hideCameraError();
     buildDots(tpl.shots, 0);
@@ -526,6 +648,9 @@
 
     if (seqId !== state.seqId) return;
     await sleep(800);
+
+    // mulai merekam video singkat selama sesi foto berlangsung
+    startRecording();
 
     for (let i = 0; i < tpl.shots; i++) {
       if (seqId !== state.seqId) return;
@@ -547,6 +672,10 @@
 
     if (seqId !== state.seqId) return;
 
+    // hentikan rekaman, simpan hasilnya untuk diunggah bersama foto
+    await stopRecording();
+    if (seqId !== state.seqId) return;
+
     renderReview();
     show('review');
     state.busy = false;
@@ -555,6 +684,8 @@
   function cancelSequence() {
     state.seqId += 1;
     state.busy = false;
+    stopRecording(true);
+    state.video = null;
     hideCameraError();
     $('#countdown').classList.remove('show', 'pop');
     $('#countdown').textContent = '';
@@ -639,6 +770,12 @@
       fileLink.hidden = true;
       fileLink.removeAttribute('href');
     }
+    const doneVideo = $('#doneVideo');
+    if (doneVideo) {
+      doneVideo.hidden = true;
+      doneVideo.className = 'done-video';
+      doneVideo.textContent = '';
+    }
     const qr = $('#qrImg');
     qr.hidden = true;
     qr.onload = function () { qr.hidden = false; };
@@ -692,6 +829,76 @@
     state.busy = false;
     $('#btnApprove').disabled = false;
     startDoneTimer();
+
+    // video diunggah setelah foto, tidak menahan layar hasil
+    const video = state.video;
+    state.video = null;
+    if (video && cfg.videoEnabled) {
+      sendVideo(video, tpl, state.code, state.seqId);
+    }
+  }
+
+  /**
+   * Kirim video singkat sesi foto. Kalau gagal, masuk antrean seperti foto.
+   */
+  async function sendVideo(video, tpl, code, seq) {
+    const note = $('#doneVideo');
+    const filename = code + '_' + tpl.id + (/mp4/i.test(video.mimeType) ? '.mp4' : '.webm');
+    const masihSesiIni = function () { return state.seqId === seq && state.code === code; };
+
+    if (note && masihSesiIni()) {
+      note.hidden = false;
+      note.className = 'done-video';
+      note.textContent = 'Mengirim video singkat...';
+    }
+
+    let dataUrl = '';
+    try {
+      dataUrl = await blobToDataUrl(video.blob);
+      const res = await window.Drive.upload({
+        endpoint: cfg.endpoint,
+        token: cfg.token,
+        code: code,
+        filename: filename,
+        dataUrl: dataUrl,
+        kind: 'video',
+        mimeType: video.mimeType
+      });
+      console.log('Video tersimpan:', res);
+      if (note && masihSesiIni()) {
+        note.className = 'done-video ok';
+        note.textContent = 'Video singkat sesi ini tersimpan di folder Video. ';
+        if (res && res.folderUrl) {
+          const a = document.createElement('a');
+          a.href = res.folderUrl;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.className = 'link';
+          a.textContent = 'Buka folder Video';
+          note.appendChild(a);
+        }
+      }
+    } catch (err) {
+      const alasan = String((err && err.message) || err);
+      console.warn('Upload video gagal:', err);
+      if (dataUrl) {
+        await window.Drive.queueAdd({
+          code: code,
+          filename: filename,
+          dataUrl: dataUrl,
+          kind: 'video',
+          mimeType: video.mimeType,
+          createdAt: Date.now(),
+          error: alasan
+        });
+      }
+      if (note && masihSesiIni()) {
+        note.className = 'done-video warn';
+        note.textContent = dataUrl
+          ? 'Video belum terkirim, akan dikirim otomatis nanti.'
+          : 'Video tidak bisa disiapkan di perangkat ini.';
+      }
+    }
   }
 
   function resetSession() {
@@ -701,6 +908,7 @@
     state.captures = [];
     state.code = '';
     state.dataUrl = '';
+    state.video = null;
     state.busy = false;
     $('#btnApprove').disabled = false;
     const rc = $('#resultCanvas');
@@ -754,6 +962,7 @@
     $('#opEndpoint').value = cfg.endpoint || '';
     $('#opToken').value = cfg.token || '';
     $('#opFolder').value = cfg.folderId || '';
+    $('#opVideo').checked = !!cfg.videoEnabled;
     $('#opSessions').textContent = String(loadStats().count);
     $('#opStatus').textContent = '';
     $('#opStatus').className = 'status';
@@ -877,7 +1086,8 @@
         eventName: $('#opEvent').value.trim() || DEFAULT_CFG.eventName,
         endpoint: $('#opEndpoint').value.trim(),
         token: $('#opToken').value.trim(),
-        folderId: match ? match[1] : folderInput
+        folderId: match ? match[1] : folderInput,
+        videoEnabled: $('#opVideo').checked
       });
       buildTemplateGrid();
       $('#opStatus').textContent = 'Pengaturan disimpan.';

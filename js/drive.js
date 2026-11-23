@@ -105,13 +105,15 @@
     if (!endpoint) return Promise.reject(new Error('URL Web App belum diatur'));
 
     const base64 = String(opts.dataUrl || '').split(',')[1] || '';
-    if (!base64) return Promise.reject(new Error('Data foto kosong'));
+    if (!base64) return Promise.reject(new Error('Data file kosong'));
 
+    const kind = opts.kind === 'video' ? 'video' : 'photo';
     const payload = {
       token: opts.token || '',
       code: opts.code || '',
       filename: opts.filename || ('foto_' + Date.now() + '.jpg'),
-      mimeType: 'image/jpeg',
+      kind: kind,
+      mimeType: opts.mimeType || (kind === 'video' ? 'video/webm' : 'image/jpeg'),
       data: base64
     };
 
@@ -205,7 +207,9 @@
             token: cfg.token,
             code: item.code,
             filename: item.filename,
-            dataUrl: item.dataUrl
+            dataUrl: item.dataUrl,
+            kind: item.kind,
+            mimeType: item.mimeType
           });
           await queueDelete(item.id);
           sent++;

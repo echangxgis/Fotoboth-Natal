@@ -25,11 +25,16 @@ var TOKEN = 'NTL-7f3a9c2e';
 /** Buat subfolder per tanggal di dalam folder utama. */
 var SUBFOLDER_PER_DAY = true;
 
+/** Pisahkan hasil foto dan video ke folder berbeda. */
+var SPLIT_PHOTO_VIDEO = true;
+var PHOTO_FOLDER_NAME = 'Gambar';
+var VIDEO_FOLDER_NAME = 'Video';
+
 /** Jadikan file bisa dilihat siapa saja yang punya link (untuk dibagikan ke guru). */
 var MAKE_FILE_PUBLIC = true;
 
-/** Batas ukuran base64 (karakter). 12 MB cukup untuk foto 4R kualitas tinggi. */
-var MAX_BASE64_LENGTH = 12 * 1024 * 1024;
+/** Batas ukuran base64 (karakter). 24 MB cukup untuk foto besar dan video singkat. */
+var MAX_BASE64_LENGTH = 24 * 1024 * 1024;
 
 /** Zona waktu untuk penamaan folder. */
 var TIMEZONE = 'Asia/Jakarta';
@@ -60,22 +65,29 @@ function doPost(e) {
       throw new Error('Token tidak cocok');
     }
     if (!body.data) {
-      throw new Error('Data foto kosong');
+      throw new Error('Data file kosong');
     }
     if (body.data.length > MAX_BASE64_LENGTH) {
-      throw new Error('Foto terlalu besar');
+      throw new Error('File terlalu besar (maksimal ' + Math.round(MAX_BASE64_LENGTH / 1024 / 1024) + ' MB)');
     }
 
+    var kind = body.kind === 'video' ? 'video' : 'photo';
+    var mimeType = body.mimeType || (kind === 'video' ? 'video/webm' : 'image/jpeg');
+
     var root = DriveApp.getFolderById(ROOT_FOLDER_ID);
-    var target = SUBFOLDER_PER_DAY ? getOrCreateFolder(root, dayStamp()) : root;
+    var base = root;
+    if (SPLIT_PHOTO_VIDEO) {
+      base = getOrCreateFolder(root, kind === 'video' ? VIDEO_FOLDER_NAME : PHOTO_FOLDER_NAME);
+    }
+    var target = SUBFOLDER_PER_DAY ? getOrCreateFolder(base, dayStamp()) : base;
 
     var code = sanitize(body.code || 'FOTO');
-    var filename = sanitize(body.filename || (code + '_' + Date.now() + '.jpg'));
-    if (!/\.jpe?g$/i.test(filename)) filename += '.jpg';
+    var filename = sanitize(body.filename || (code + '_' + Date.now()));
+    filename = ensureExtension(filename, kind, mimeType);
 
     var blob = Utilities.newBlob(
       Utilities.base64Decode(body.data),
-      body.mimeType || 'image/jpeg',
+      mimeType,
       filename
     );
 
@@ -132,6 +144,15 @@ function sanitize(value) {
     .replace(/[\\/:*?"<>|]/g, '-')
     .replace(/\s+/g, '_')
     .slice(0, 120);
+}
+
+function ensureExtension(filename, kind, mimeType) {
+  if (kind === 'video') {
+    if (/\.(webm|mp4|mov)$/i.test(filename)) return filename;
+    return filename + (/mp4/i.test(mimeType) ? '.mp4' : '.webm');
+  }
+  if (/\.(jpe?g|png)$/i.test(filename)) return filename;
+  return filename + '.jpg';
 }
 
 
