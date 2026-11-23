@@ -367,12 +367,7 @@ Kalau internet mati, foto **tetap tersimpan di perangkat** (IndexedDB) dan otoma
 
 ### Ukuran akhir JPG
 
-Semua hasil sesi diekspor sebagai JPG dengan ukuran berikut (lebar × tinggi):
-
-- **Landscape**, termasuk bingkai persegi: tepat **1920×1080 piksel**.
-- **Portrait**: tepat **1080×1920 piksel**.
-
-Jika rasio bingkai berbeda dari rasio ukuran akhir, aplikasi menambahkan ruang kosong (padding) agar bingkai tetap utuh, tanpa dipotong atau diregangkan.
+Hasil sesi diekspor sebagai JPG mengikuti ukuran asli setiap desain, tanpa menambahkan ruang di luar bingkai. Ukuran ekspor tercantum di tabel di bawah.
 
 ### Penamaan file dan folder
 
@@ -394,14 +389,14 @@ Layar **Pilih Bingkai** dibagi menjadi tiga kelompok.
 
 ### Strip Photobooth
 
-| Bingkai | Ukuran desain (sebelum ekspor JPG) | Jumlah foto |
+| Bingkai | Ukuran ekspor JPG | Jumlah foto |
 |---|---|---|
 | Strip Klasik | 1080×3240 (1:3) | 3 |
 | Strip Empat | 1080×3240 (1:3) | 4 |
 
 ### Story & Reels
 
-| Bingkai | Ukuran desain (sebelum ekspor JPG) | Jumlah foto |
+| Bingkai | Ukuran ekspor JPG | Jumlah foto |
 |---|---|---|
 | Story Tunggal | 1080×1920 (9:16) | 1 |
 | Story Kolase 3 Foto | 1080×1920 (9:16) | 3 |
@@ -414,7 +409,7 @@ Teks penting sengaja diletakkan di area aman, jadi tidak tertutup tombol Instagr
 
 ### Bingkai Besar
 
-| Bingkai | Ukuran desain (sebelum ekspor JPG) | Jumlah foto |
+| Bingkai | Ukuran ekspor JPG | Jumlah foto |
 |---|---|---|
 | Bingkai Lebar | 1920×1280 (3:2, landscape dengan panel ucapan) | 1 |
 | Landscape Teks Timbul | 1920×1280 (3:2, teks langsung di atas foto) | 1 |

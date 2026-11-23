@@ -204,21 +204,6 @@
     return canvas;
   }
 
-  function renderFullHD(canvas, tpl, photos, meta) {
-    const portrait = tpl.h > tpl.w;
-    const w = portrait ? 1080 : 1920;
-    const h = portrait ? 1920 : 1080;
-    const frame = document.createElement('canvas');
-    renderTemplate(frame, tpl, photos, meta, Math.min(w / tpl.w, h / tpl.h));
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = palettes[tpl.palette][1];
-    ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(frame, Math.floor((w - frame.width) / 2), Math.floor((h - frame.height) / 2));
-    return canvas;
-  }
-
   window.PB = window.PB || {};
-  Object.assign(window.PB, { GROUPS, TEMPLATES, renderTemplate, renderFullHD });
+  Object.assign(window.PB, { GROUPS, TEMPLATES, renderTemplate });
 })();

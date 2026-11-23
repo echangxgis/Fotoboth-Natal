@@ -25,7 +25,6 @@
 
   const TEMPLATES = window.PB.TEMPLATES;
   const renderTemplate = window.PB.renderTemplate;
-  const renderFullHD = window.PB.renderFullHD;
 
   const state = {
     template: null,
@@ -571,7 +570,7 @@
      ========================================================= */
 
   function renderReview() {
-    renderFullHD($('#previewCanvas'), state.template, state.captures, {
+    renderTemplate($('#previewCanvas'), state.template, state.captures, {
       eventName: cfg.eventName,
       code: ''
     });
@@ -624,7 +623,7 @@
     const finalCanvas = document.createElement('canvas');
     state.code = nextCode();
 
-    renderFullHD(finalCanvas, tpl, state.captures, {
+    renderTemplate(finalCanvas, tpl, state.captures, {
       eventName: cfg.eventName,
       code: state.code
     });
