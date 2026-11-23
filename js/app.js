@@ -21,7 +21,8 @@
     eventName: 'Natal Sekolah Kristen Kalam Kudus Sentani 2026',
     codePrefix: 'NTL',
     autoResetMs: 30000,
-    videoEnabled: true
+    videoEnabled: true,
+    videoSeconds: 8
   }, window.PB_CONFIG || {});
 
   const TEMPLATES = window.PB.TEMPLATES;
@@ -341,7 +342,8 @@
 
     const canvas = document.createElement('canvas');
     const full = document.createElement('canvas');
-    renderTemplate(full, tpl, [], { eventName: cfg.eventName, code: '' });
+    // thumbnail cukup pakai ukuran dasar supaya ringan
+    renderTemplate(full, tpl, [], { eventName: cfg.eventName, code: '' }, 1);
 
     const maxH = 236;
     const maxW = 150;
@@ -473,7 +475,7 @@
         video: {
           facingMode: 'user',
           width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          height: { ideal: 1440 }
         },
         audio: false
       });
@@ -516,8 +518,15 @@
      Video singkat saat pengambilan foto
      ========================================================= */
 
-  const VIDEO_MAX_MS = 25000;
   const VIDEO_BITRATE = 1500000;
+  const VIDEO_DEFAULT_SECONDS = 8;
+
+  /** Panjang video dalam milidetik. Bawaan 8 detik, boleh 3–25 detik. */
+  function videoMaxMs() {
+    const sec = Number(cfg.videoSeconds);
+    const n = isFinite(sec) && sec > 0 ? sec : VIDEO_DEFAULT_SECONDS;
+    return Math.max(3, Math.min(25, n)) * 1000;
+  }
 
   function recordingSupported() {
     return !!(window.MediaRecorder && state.stream);
@@ -587,14 +596,16 @@
     }
 
     clearTimeout(state.videoTimer);
-    state.videoTimer = setTimeout(function () { stopRecording(); }, VIDEO_MAX_MS);
+    state.videoTimer = setTimeout(function () { stopRecording(); }, videoMaxMs());
   }
 
   function stopRecording(discard) {
     clearTimeout(state.videoTimer);
     state.videoTimer = null;
-    state.videoDiscard = !!discard;
-    if (discard) state.video = null;
+    if (discard) {
+      state.videoDiscard = true;
+      state.video = null;
+    }
 
     const rec = state.recorder;
     if (!rec) {
@@ -602,15 +613,17 @@
     }
 
     return new Promise(function (resolve) {
+      const pending = state.videoResolve;
+      if (pending) {
+        state.videoResolve = function (result) {
+          pending(result);
+          resolve(result);
+        };
+        return;
+      }
       state.videoResolve = resolve;
       try {
-        if (rec.state !== 'inactive') {
-          rec.stop();
-        } else {
-          state.recorder = null;
-          state.videoResolve = null;
-          resolve(null);
-        }
+        if (rec.state !== 'inactive') rec.stop();
       } catch (err) {
         state.recorder = null;
         state.videoResolve = null;
@@ -687,6 +700,7 @@
 
     if (seqId !== state.seqId) return;
     await sleep(800);
+    if (seqId !== state.seqId) return;
 
     // mulai merekam video singkat selama sesi foto berlangsung
     startRecording();
@@ -1002,6 +1016,8 @@
     $('#opToken').value = cfg.token || '';
     $('#opFolder').value = cfg.folderId || '';
     $('#opVideo').checked = !!cfg.videoEnabled;
+    $('#opVideoSeconds').value = String(cfg.videoSeconds || 8);
+    $('#opVideoSeconds').disabled = !$('#opVideo').checked;
     $('#opSessions').textContent = String(loadStats().count);
     $('#opStatus').textContent = '';
     $('#opStatus').className = 'status';
@@ -1053,6 +1069,13 @@
     $('#btnDone').addEventListener('click', resetSession);
 
     $('#btnOperator').addEventListener('click', openOperator);
+
+    const opVideo = $('#opVideo');
+    if (opVideo) {
+      opVideo.addEventListener('change', function () {
+        $('#opVideoSeconds').disabled = !this.checked;
+      });
+    }
 
     // logo sekolah di halaman depan
     const logoInput = $('#opLogo');
@@ -1127,7 +1150,8 @@
         endpoint: $('#opEndpoint').value.trim(),
         token: $('#opToken').value.trim(),
         folderId: match ? match[1] : folderInput,
-        videoEnabled: $('#opVideo').checked
+        videoEnabled: $('#opVideo').checked,
+        videoSeconds: Number($('#opVideoSeconds').value) || 8
       });
       buildTemplateGrid();
       $('#opStatus').textContent = 'Pengaturan disimpan.';

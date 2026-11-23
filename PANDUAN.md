@@ -419,9 +419,9 @@ Pengaturan ini tersimpan di perangkat itu saja. Kalau memakai beberapa laptop, a
 
 | Hal | Nilai |
 |---|---|
-| Panjang maksimal | 25 detik |
-| Resolusi | Mengikuti kamera (biasanya 1280×960) |
-| Ukuran file | ±2–5 MB per sesi |
+| Batas durasi | 8 detik secara bawaan; pilihan 5, 8, 10, 15, atau 25 detik di Panel Operator |
+| Resolusi | Mengikuti resolusi yang didukung kamera |
+| Ukuran file | Bergantung pada durasi dan hasil kompresi |
 | Suara | Tidak direkam |
 
 Kalau anak terlalu lama di layar periksa, rekaman sudah berhenti lebih dulu — jadi videonya tetap singkat.
@@ -445,25 +445,29 @@ Layar **Pilih Bingkai** dibagi menjadi tiga kelompok.
 
 | Bingkai | Ukuran | Jumlah foto |
 |---|---|---|
-| Strip Klasik | 600×1800 (2:3) | 3 |
-| Strip Empat | 600×1800 (2:3) | 4 |
+| Strip Klasik | 1080×3240 (1:3) | 3 |
+| Strip Empat | 1080×3240 (1:3) | 4 |
 
 ### Story & Reels
 
 | Bingkai | Ukuran | Jumlah foto |
 |---|---|---|
 | Story Tunggal | 1080×1920 (9:16) | 1 |
-| Story Kolase | 1080×1920 (9:16) | 3 |
+| Story Kolase 3 Foto | 1080×1920 (9:16) | 3 |
+| Story Kolase 6 Foto | 1080×1920 (9:16) | 6 |
 
 Ukuran 9:16 pas untuk Instagram Story, Reels cover, WhatsApp Status, dan TikTok.
+
+Semua bingkai memuat ucapan `Merry Christmas SKKK Sentani. Theme: "Follow the Light" (Math.2:2 & John.8:12)`. Kelap-kelip tampil di pemilih bingkai; hasil foto tetap berupa JPG.
 Teks penting sengaja diletakkan di area aman, jadi tidak tertutup tombol Instagram.
 
 ### Bingkai Besar
 
 | Bingkai | Ukuran | Jumlah foto |
 |---|---|---|
-| Bingkai Lebar | 1800×1200 (3:2, 4R landscape) | 1 |
-| Persegi | 1080×1080 (1:1) | 1 |
+| Bingkai Lebar | 1920×1280 (3:2, landscape dengan panel ucapan) | 1 |
+| Landscape Teks Timbul | 1920×1280 (3:2, teks langsung di atas foto) | 1 |
+| Persegi | 1440×1440 (1:1) | 1 |
 
 Semua bingkai digambar langsung dengan kode, jadi tidak ada file gambar yang bisa hilang. Untuk menambah atau mengubah bingkai, edit `js/templates.js`.
 

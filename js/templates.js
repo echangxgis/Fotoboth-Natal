@@ -1,697 +1,209 @@
-/* =========================================================
-   Photobooth Natal - template engine
-   Setiap template digambar dengan canvas, jadi tidak butuh
-   file gambar eksternal (aman saat offline).
-   ========================================================= */
-
+/* Bingkai Natal digambar di canvas agar tetap berfungsi offline. */
 (function () {
   'use strict';
 
-  /* ---------------- helpers ---------------- */
+  const GROUPS = [
+    { id: 'strip', label: 'Strip Photobooth', note: 'Cetak klasik, 3–4 foto berurutan' },
+    { id: 'story', label: 'Story & Reels', note: 'Potret 9:16 · pilih 1, 3, atau 6 foto' },
+    { id: 'besar', label: 'Bingkai Besar', note: 'Satu foto · persegi atau landscape' }
+  ];
+  const palettes = {
+    berry: ['#d22c69', '#451759', '#ffabd0'],
+    mint: ['#07897e', '#103759', '#99ffe1'],
+    violet: ['#734bd5', '#282258', '#d2baff'],
+    blue: ['#227eb5', '#192756', '#9ceaff']
+  };
+  const slot = (x, y, w, h, r = 22) => ({ x, y, w, h, r });
+  const story = (id, name, palette, slots) => ({
+    id, name, palette, slots, group: 'story', ratio: '9:16', w: 1080, h: 1920,
+    desc: `${slots.length} foto · 1080 × 1920`, title: [540, 214, 780, 65], tree: [915, 220, 152]
+  });
+  const TEMPLATES = [
+    { id: 'strip3', name: 'Strip Klasik', desc: '3 foto · Nuansa permen Natal', group: 'strip', ratio: '1:3',
+      w: 600, h: 1800, scale: 1.8, palette: 'berry', title: [270, 1635, 440, 38], tree: [522, 1695, 94],
+      slots: [0, 1, 2].map(i => slot(32, 72 + i * 504, 536, 477, 15)) },
+    { id: 'strip4', name: 'Strip Empat', desc: '4 foto · Nuansa mint', group: 'strip', ratio: '1:3',
+      w: 600, h: 1800, scale: 1.8, palette: 'mint', title: [270, 1672, 440, 35], tree: [522, 1720, 86],
+      slots: [0, 1, 2, 3].map(i => slot(32, 58 + i * 392, 536, 372, 15)) },
+    story('story1', 'Story Tunggal', 'berry', [slot(70, 430, 940, 1110, 32)]),
+    story('story3', 'Story Kolase 3 Foto', 'violet', [slot(70, 425, 940, 628), slot(70, 1081, 455, 475), slot(555, 1081, 455, 475)]),
+    story('story6', 'Story Kolase 6 Foto', 'blue', Array.from({ length: 6 }, (_, i) => slot(70 + (i % 2) * 483, 420 + Math.floor(i / 2) * 405, 457, 379))),
+    { id: 'landscape', name: 'Bingkai Lebar', desc: '1 foto + panel ucapan', group: 'besar', ratio: '3:2',
+      w: 1920, h: 1280, palette: 'mint', title: [1530, 522, 620, 63], tree: [1530, 880, 310],
+      slots: [slot(58, 60, 1100, 1160, 36)] },
+    { id: 'landscapeOverlay', name: 'Landscape Teks Timbul', desc: '1 foto penuh · 1920 × 1280', group: 'besar', ratio: '3:2',
+      w: 1920, h: 1280, palette: 'violet', title: [960, 1004, 1380, 83], tree: [1710, 1070, 220], embossed: true,
+      slots: [slot(28, 28, 1864, 1224, 38)] },
+    { id: 'square', name: 'Persegi', desc: '1 foto · 1440 × 1440', group: 'besar', ratio: '1:1',
+      w: 1080, h: 1080, scale: 4 / 3, palette: 'berry', title: [510, 876, 825, 52], tree: [952, 944, 166],
+      slots: [slot(66, 65, 948, 747, 25)] }
+  ].map(tpl => ({ ...tpl, shots: tpl.slots.length }));
 
-  function roundRect(ctx, x, y, w, h, r) {
-    const rr = Math.min(r || 0, w / 2, h / 2);
+  function rounded(ctx, x, y, w, h, r) {
     ctx.beginPath();
-    ctx.moveTo(x + rr, y);
-    ctx.lineTo(x + w - rr, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
-    ctx.lineTo(x + w, y + h - rr);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
-    ctx.lineTo(x + rr, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
-    ctx.lineTo(x, y + rr);
-    ctx.quadraticCurveTo(x, y, x + rr, y);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
   }
 
-  function drawPhoto(ctx, img, x, y, w, h, r) {
-    if (!img) return;
-    ctx.save();
-    roundRect(ctx, x, y, w, h, r || 0);
-    ctx.clip();
-
-    const iw = img.width || img.videoWidth;
-    const ih = img.height || img.videoHeight;
-    const imgRatio = iw / ih;
-    const slotRatio = w / h;
-
-    let sw, sh, sx, sy;
-    if (imgRatio > slotRatio) {
-      sh = ih;
-      sw = sh * slotRatio;
-      sx = (iw - sw) / 2;
-      sy = 0;
-    } else {
-      sw = iw;
-      sh = sw / slotRatio;
-      sx = 0;
-      sy = (ih - sh) / 2;
-    }
-    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
-    ctx.restore();
-  }
-
-  function placeholder(ctx, s) {
-    ctx.save();
-    roundRect(ctx, s.x, s.y, s.w, s.h, s.r || 0);
-    ctx.clip();
-    const g = ctx.createLinearGradient(s.x, s.y, s.x + s.w, s.y + s.h);
-    g.addColorStop(0, 'rgba(255,255,255,0.10)');
-    g.addColorStop(1, 'rgba(255,255,255,0.03)');
-    ctx.fillStyle = g;
-    ctx.fillRect(s.x, s.y, s.w, s.h);
-    ctx.restore();
-
-    ctx.save();
-    ctx.strokeStyle = 'rgba(232,194,106,0.22)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([10, 8]);
-    roundRect(ctx, s.x + 1, s.y + 1, s.w - 2, s.h - 2, s.r || 0);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = 'rgba(232,194,106,0.35)';
-    ctx.font = '600 ' + Math.round(Math.min(s.w, s.h) * 0.09) + 'px "Trebuchet MS", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('FOTO', s.x + s.w / 2, s.y + s.h / 2);
-    ctx.restore();
-  }
-
-  function snowflake(ctx, cx, cy, r, color, alpha) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.strokeStyle = color;
-    ctx.globalAlpha = alpha;
-    ctx.lineWidth = Math.max(1.5, r * 0.11);
-    ctx.lineCap = 'round';
-    for (let i = 0; i < 6; i++) {
-      ctx.rotate(Math.PI / 3);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(0, -r);
-      ctx.moveTo(0, -r * 0.55);
-      ctx.lineTo(-r * 0.3, -r * 0.82);
-      ctx.moveTo(0, -r * 0.55);
-      ctx.lineTo(r * 0.3, -r * 0.82);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  function star(ctx, cx, cy, r, color) {
-    ctx.save();
+  function dot(ctx, x, y, r, color) {
     ctx.fillStyle = color;
     ctx.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const rad = i % 2 === 0 ? r : r * 0.44;
-      const a = (Math.PI / 5) * i - Math.PI / 2;
-      const px = cx + Math.cos(a) * rad;
-      const py = cy + Math.sin(a) * rad;
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function star(ctx, x, y, r, color, points = 5) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < points * 2; i++) {
+      const a = i * Math.PI / points - Math.PI / 2;
+      const d = i % 2 ? r * 0.32 : r;
+      const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d;
       if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     }
     ctx.closePath();
     ctx.fill();
+  }
+
+  function christmasTree(ctx, x, y, height) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(height / 100, height / 100);
+    ctx.fillStyle = '#f4a776';
+    ctx.fillRect(-7, 28, 14, 13);
+    const tiers = [[-18, 32, 36, '#09a983'], [-31, 17, 27, '#46d4a0'], [-43, 2, 19, '#8cf4bd']];
+    tiers.forEach(([top, bottom, half, color]) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, top);
+      ctx.lineTo(half, bottom - 5);
+      ctx.quadraticCurveTo(half + 3, bottom, half - 3, bottom);
+      ctx.lineTo(-half + 3, bottom);
+      ctx.quadraticCurveTo(-half - 3, bottom, -half, bottom - 5);
+      ctx.closePath();
+      ctx.fill();
+    });
+    [[-12, 3, '#ff709d'], [14, 12, '#fff2a8'], [-19, 24, '#b9f5ff'], [4, 25, '#ff93b5'], [3, -12, '#fff2a8']]
+      .forEach(([px, py, color]) => dot(ctx, px, py, 3.1, color));
+    dot(ctx, 0, -43, 15, 'rgba(255,229,117,0.22)');
+    star(ctx, 0, -43, 13, '#ffe583');
+    star(ctx, -35, -25, 6, '#fff4bd', 4);
+    star(ctx, 39, -12, 7, '#fff4bd', 4);
     ctx.restore();
   }
 
-  function spacedText(ctx, text, x, y, spacing) {
-    if (ctx.letterSpacing !== undefined) {
-      ctx.letterSpacing = spacing + 'px';
-      ctx.fillText(text, x, y);
-      ctx.letterSpacing = '0px';
-      return;
+  function drawBackground(ctx, tpl, colors) {
+    const g = ctx.createLinearGradient(0, 0, tpl.w, tpl.h);
+    g.addColorStop(0, colors[0]);
+    g.addColorStop(1, colors[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, tpl.w, tpl.h);
+    const [x, y, h] = tpl.tree;
+    const glow = ctx.createRadialGradient(x, y - h * 0.43, 0, x, y - h * 0.43, h * 2.3);
+    glow.addColorStop(0, 'rgba(255,225,128,0.29)');
+    glow.addColorStop(1, 'rgba(255,225,128,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, tpl.w, tpl.h);
+    // Deterministic light trail: the exported image never changes between renders.
+    for (let i = 0; i < 82; i++) {
+      const px = 20 + ((i * 149) % (tpl.w - 40));
+      const py = 20 + ((i * 223) % (tpl.h - 40));
+      if (i % 5 === 0) star(ctx, px, py, 7 + i % 9, i % 2 ? colors[2] : '#ffe798', 4);
+      else dot(ctx, px, py, 2 + i % 4, 'rgba(255,255,255,0.38)');
     }
-    // fallback manual
-    const chars = String(text).split('');
-    const widths = chars.map((c) => ctx.measureText(c).width);
-    const total = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
-    let cx = x - total / 2;
-    const align = ctx.textAlign;
-    ctx.textAlign = 'left';
-    chars.forEach((c, i) => {
-      ctx.fillText(c, cx, y);
-      cx += widths[i] + spacing;
+  }
+
+  function drawSlot(ctx, s, img, accent, index) {
+    ctx.save();
+    rounded(ctx, s.x, s.y, s.w, s.h, s.r);
+    ctx.clip();
+    if (img) {
+      const iw = img.videoWidth || img.width;
+      const ih = img.videoHeight || img.height;
+      const scale = Math.max(s.w / iw, s.h / ih);
+      const sw = s.w / scale, sh = s.h / scale;
+      ctx.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, s.x, s.y, s.w, s.h);
+    } else {
+      ctx.fillStyle = 'rgba(23,17,63,0.58)';
+      ctx.fillRect(s.x, s.y, s.w, s.h);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `700 ${Math.round(Math.min(s.w, s.h) * 0.09)}px "Trebuchet MS", sans-serif`;
+      ctx.fillStyle = accent;
+      ctx.fillText(`FOTO ${index + 1}`, s.x + s.w / 2, s.y + s.h / 2);
+    }
+    ctx.restore();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 3;
+    rounded(ctx, s.x, s.y, s.w, s.h, s.r);
+    ctx.stroke();
+  }
+
+  function drawTitle(ctx, tpl, accent) {
+    const [x, y, maxWidth, size] = tpl.title;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    const lines = [
+      ['Merry Christmas', 0, 1, '#fff5dc'],
+      ['SKKK Sentani.', 0.87, 0.73, accent],
+      ['Theme: "Follow the Light"', 1.64, 0.57, '#ffe583'],
+      ['(Math.2:2 & John.8:12)', 2.23, 0.44, '#ffffff']
+    ];
+    lines.forEach(([text, offset, factor, color]) => {
+      const py = y + offset * size;
+      ctx.font = `800 ${Math.round(size * factor)}px "Trebuchet MS", sans-serif`;
+      if (tpl.embossed) {
+        ctx.strokeStyle = '#281632';
+        ctx.lineWidth = Math.max(3, size * factor * 0.12);
+        ctx.lineJoin = 'round';
+        ctx.strokeText(text, x, py + size * 0.07, maxWidth);
+        ctx.fillStyle = '#623938';
+        ctx.fillText(text, x, py + size * 0.065, maxWidth);
+        ctx.fillStyle = '#fffef0';
+        ctx.fillText(text, x, py - size * 0.022, maxWidth);
+      }
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, py, maxWidth);
     });
-    ctx.textAlign = align;
+    ctx.restore();
   }
 
-  /* ---------------- template definitions ---------------- */
-
-  /**
-   * Kelompok bingkai di layar "Pilih Bingkai".
-   * Urutan array ini menentukan urutan tampil.
-   */
-  const GROUPS = [
-    { id: 'strip', label: 'Strip Photobooth', note: 'Cetak klasik, 3–4 foto berurutan' },
-    { id: 'story', label: 'Story & Reels', note: 'Ukuran 9:16, pas untuk Instagram Story dan Reels' },
-    { id: 'besar', label: 'Bingkai Besar', note: 'Satu foto, ukuran besar' }
-  ];
-
-  const TEMPLATES = [
-    /* ---------- 1. Strip 3 foto ---------- */
-    {
-      id: 'strip3',
-      name: 'Strip Klasik',
-      desc: '3 foto, gaya photobooth',
-      group: 'strip',
-      ratio: '2:3',
-      w: 600,
-      h: 1800,
-      shots: 3,
-      slots: [
-        { x: 30, y: 60, w: 540, h: 480, r: 4 },
-        { x: 30, y: 564, w: 540, h: 480, r: 4 },
-        { x: 30, y: 1068, w: 540, h: 480, r: 4 }
-      ],
-      bg: function (ctx) {
-        const g = ctx.createLinearGradient(0, 0, 0, 1800);
-        g.addColorStop(0, '#6d0d18');
-        g.addColorStop(0.5, '#4a0710');
-        g.addColorStop(1, '#2b0409');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 600, 1800);
-
-        const rg = ctx.createRadialGradient(300, 260, 30, 300, 260, 720);
-        rg.addColorStop(0, 'rgba(232,194,106,0.20)');
-        rg.addColorStop(1, 'rgba(232,194,106,0)');
-        ctx.fillStyle = rg;
-        ctx.fillRect(0, 0, 600, 1000);
-
-        const pts = [
-          [66, 118, 15], [524, 92, 21], [118, 618, 13],
-          [486, 760, 17], [78, 1298, 19], [512, 1424, 13],
-          [300, 1652, 11], [158, 1742, 15]
-        ];
-        pts.forEach(function (p) { snowflake(ctx, p[0], p[1], p[2], '#f3e3c0', 0.17); });
-      },
-      overlay: function (ctx, m) {
-        ctx.strokeStyle = 'rgba(232,194,106,0.85)';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(16, 16, 568, 1768);
-        ctx.strokeStyle = 'rgba(232,194,106,0.30)';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(26, 26, 548, 1748);
-
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-
-        star(ctx, 300, 1578, 13, '#e8c26a');
-
-        ctx.fillStyle = '#f7e7c6';
-        ctx.font = '400 46px Georgia, "Times New Roman", serif';
-        ctx.fillText('SELAMAT NATAL', 300, 1652);
-
-        drawEventBlock(ctx, m.eventName, 300, {
-          y: 1694,
-          size: 21,
-          maxWidth: 520,
-          lineGap: 25,
-          forceTwo: true,
-          color: 'rgba(247,231,198,0.78)'
-        });
-
-        ctx.fillStyle = 'rgba(247,231,198,0.42)';
-        ctx.font = '400 16px "Trebuchet MS", sans-serif';
-        ctx.fillText(m.code || '', 300, 1762);
-      }
-    },
-
-    /* ---------- 2. Strip 4 foto ---------- */
-    {
-      id: 'strip4',
-      name: 'Strip Empat',
-      desc: '4 foto berurutan',
-      group: 'strip',
-      ratio: '2:3',
-      w: 600,
-      h: 1800,
-      shots: 4,
-      slots: [
-        { x: 30, y: 50, w: 540, h: 380, r: 4 },
-        { x: 30, y: 446, w: 540, h: 380, r: 4 },
-        { x: 30, y: 842, w: 540, h: 380, r: 4 },
-        { x: 30, y: 1238, w: 540, h: 380, r: 4 }
-      ],
-      bg: function (ctx) {
-        const g = ctx.createLinearGradient(0, 0, 600, 1800);
-        g.addColorStop(0, '#0f3d2b');
-        g.addColorStop(0.55, '#0a2b1e');
-        g.addColorStop(1, '#051710');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 600, 1800);
-
-        const rg = ctx.createRadialGradient(480, 140, 20, 480, 140, 620);
-        rg.addColorStop(0, 'rgba(232,194,106,0.18)');
-        rg.addColorStop(1, 'rgba(232,194,106,0)');
-        ctx.fillStyle = rg;
-        ctx.fillRect(0, 0, 600, 900);
-
-        const pts = [
-          [72, 96, 16], [520, 300, 12], [96, 700, 18],
-          [506, 1010, 14], [82, 1450, 13], [524, 1620, 19]
-        ];
-        pts.forEach(function (p) { snowflake(ctx, p[0], p[1], p[2], '#f3e3c0', 0.15); });
-      },
-      overlay: function (ctx, m) {
-        ctx.strokeStyle = 'rgba(232,194,106,0.80)';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(16, 16, 568, 1768);
-        ctx.strokeStyle = 'rgba(232,194,106,0.26)';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(26, 26, 548, 1748);
-
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-
-        star(ctx, 300, 1642, 10, '#e8c26a');
-
-        ctx.fillStyle = '#f7e7c6';
-        ctx.font = '400 32px Georgia, "Times New Roman", serif';
-        ctx.fillText('SELAMAT NATAL', 300, 1690);
-
-        drawEventBlock(ctx, m.eventName, 300, {
-          y: 1716,
-          size: 16,
-          maxWidth: 520,
-          lineGap: 20,
-          forceTwo: true,
-          color: 'rgba(247,231,198,0.66)'
-        });
-
-        ctx.fillStyle = 'rgba(247,231,198,0.38)';
-        ctx.font = '400 13px "Trebuchet MS", sans-serif';
-        ctx.fillText(m.code || '', 300, 1772);
-      }
-    },
-
-    /* ---------- 3. Bingkai 4R landscape ---------- */
-    {
-      id: 'landscape',
-      name: 'Bingkai Lebar',
-      desc: '1 foto besar + ucapan',
-      group: 'besar',
-      ratio: '3:2',
-      w: 1800,
-      h: 1200,
-      shots: 1,
-      slots: [
-        { x: 50, y: 60, w: 1110, h: 1080, r: 6 }
-      ],
-      bg: function (ctx) {
-        ctx.fillStyle = '#150a07';
-        ctx.fillRect(0, 0, 1800, 1200);
-
-        const g = ctx.createLinearGradient(1200, 0, 1800, 1200);
-        g.addColorStop(0, '#0f3d2b');
-        g.addColorStop(1, '#061a12');
-        ctx.fillStyle = g;
-        ctx.fillRect(1200, 0, 600, 1200);
-
-        ctx.fillStyle = 'rgba(232,194,106,0.65)';
-        ctx.fillRect(1180, 60, 3, 1080);
-
-        const rg = ctx.createRadialGradient(1500, 300, 30, 1500, 300, 520);
-        rg.addColorStop(0, 'rgba(232,194,106,0.16)');
-        rg.addColorStop(1, 'rgba(232,194,106,0)');
-        ctx.fillStyle = rg;
-        ctx.fillRect(1200, 0, 600, 1200);
-
-        snowflake(ctx, 1300, 150, 20, '#f3e3c0', 0.16);
-        snowflake(ctx, 1700, 980, 16, '#f3e3c0', 0.13);
-        snowflake(ctx, 1640, 220, 12, '#f3e3c0', 0.12);
-      },
-      overlay: function (ctx, m) {
-        ctx.strokeStyle = 'rgba(232,194,106,0.8)';
-        ctx.lineWidth = 6;
-        ctx.strokeRect(50, 60, 1110, 1080);
-
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-
-        star(ctx, 1500, 250, 22, '#e8c26a');
-
-        ctx.fillStyle = 'rgba(247,231,198,0.7)';
-        ctx.font = '400 30px "Trebuchet MS", sans-serif';
-        spacedText(ctx, 'SELAMAT', 1500, 330, 7);
-
-        ctx.fillStyle = '#f7e7c6';
-        ctx.font = '400 96px Georgia, "Times New Roman", serif';
-        ctx.fillText('NATAL', 1500, 430);
-
-        ctx.strokeStyle = 'rgba(232,194,106,0.5)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(1370, 480);
-        ctx.lineTo(1630, 480);
-        ctx.stroke();
-
-        drawEventBlock(ctx, m.eventName, 1500, {
-          y: 540,
-          size: 22,
-          maxWidth: 460,
-          lineGap: 30,
-          forceTwo: true,
-          color: 'rgba(247,231,198,0.8)'
-        });
-
-        ctx.fillStyle = 'rgba(247,231,198,0.4)';
-        ctx.font = '400 19px "Trebuchet MS", sans-serif';
-        ctx.fillText(m.code || '', 1500, 1090);
-      }
-    },
-
-    /* ---------- 4. Persegi untuk media sosial ---------- */
-    {
-      id: 'square',
-      name: 'Persegi',
-      desc: '1 foto, pas untuk medsos',
-      group: 'besar',
-      ratio: '1:1',
-      w: 1080,
-      h: 1080,
-      shots: 1,
-      slots: [
-        { x: 100, y: 60, w: 880, h: 880, r: 26 }
-      ],
-      bg: function (ctx) {
-        const g = ctx.createLinearGradient(0, 0, 1080, 1080);
-        g.addColorStop(0, '#5c0a14');
-        g.addColorStop(0.6, '#3a0610');
-        g.addColorStop(1, '#0f3d2b');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 1080, 1080);
-
-        const rg = ctx.createRadialGradient(540, 120, 40, 540, 120, 700);
-        rg.addColorStop(0, 'rgba(232,194,106,0.18)');
-        rg.addColorStop(1, 'rgba(232,194,106,0)');
-        ctx.fillStyle = rg;
-        ctx.fillRect(0, 0, 1080, 700);
-
-        snowflake(ctx, 46, 500, 18, '#f3e3c0', 0.18);
-        snowflake(ctx, 1036, 430, 14, '#f3e3c0', 0.15);
-        snowflake(ctx, 60, 980, 12, '#f3e3c0', 0.12);
-      },
-      overlay: function (ctx, m) {
-        ctx.strokeStyle = 'rgba(232,194,106,0.85)';
-        ctx.lineWidth = 5;
-        roundRect(ctx, 100, 60, 880, 880, 26);
-        ctx.stroke();
-
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-
-        ctx.fillStyle = '#f7e7c6';
-        ctx.font = '400 40px Georgia, "Times New Roman", serif';
-        ctx.fillText('SELAMAT NATAL', 540, 1010);
-
-        drawEventBlock(ctx, m.eventName, 540, {
-          y: 1046,
-          size: 19,
-          maxWidth: 820,
-          maxLines: 1,
-          color: 'rgba(247,231,198,0.62)'
-        });
-
-        ctx.fillStyle = 'rgba(247,231,198,0.34)';
-        ctx.font = '400 15px "Trebuchet MS", sans-serif';
-        ctx.textAlign = 'right';
-        ctx.fillText(m.code || '', 1010, 1066);
-      }
-    },
-
-    /* ---------- 5. Story tunggal 9:16 ---------- */
-    {
-      id: 'story1',
-      name: 'Story Tunggal',
-      desc: '1 foto, 9:16 untuk Story & Reels',
-      group: 'story',
-      ratio: '9:16',
-      w: 1080,
-      h: 1920,
-      shots: 1,
-      slots: [
-        { x: 60, y: 520, w: 960, h: 720, r: 26 }
-      ],
-      bg: function (ctx) {
-        const g = ctx.createLinearGradient(0, 0, 0, 1920);
-        g.addColorStop(0, '#6d0d18');
-        g.addColorStop(0.42, '#3f0610');
-        g.addColorStop(1, '#07170f');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 1080, 1920);
-
-        const rg = ctx.createRadialGradient(540, 380, 40, 540, 380, 760);
-        rg.addColorStop(0, 'rgba(232,194,106,0.22)');
-        rg.addColorStop(1, 'rgba(232,194,106,0)');
-        ctx.fillStyle = rg;
-        ctx.fillRect(0, 0, 1080, 1300);
-
-        const pts = [
-          [92, 200, 17], [988, 258, 13], [72, 980, 19],
-          [1008, 1120, 15], [124, 1500, 13], [956, 1532, 17],
-          [540, 1690, 11]
-        ];
-        pts.forEach(function (p) { snowflake(ctx, p[0], p[1], p[2], '#f3e3c0', 0.16); });
-      },
-      overlay: function (ctx, m) {
-        ctx.strokeStyle = 'rgba(232,194,106,0.85)';
-        ctx.lineWidth = 5;
-        ctx.strokeRect(34, 34, 1012, 1852);
-        ctx.strokeStyle = 'rgba(232,194,106,0.26)';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(46, 46, 988, 1828);
-
-        ctx.strokeStyle = 'rgba(232,194,106,0.7)';
-        ctx.lineWidth = 5;
-        roundRect(ctx, 60, 520, 960, 720, 26);
-        ctx.stroke();
-
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-
-        ctx.fillStyle = 'rgba(247,231,198,0.5)';
-        ctx.font = '600 24px "Trebuchet MS", sans-serif';
-        spacedText(ctx, 'PHOTOBOOTH', 540, 186, 10);
-
-        star(ctx, 540, 258, 15, '#e8c26a');
-
-        ctx.fillStyle = 'rgba(247,231,198,0.85)';
-        ctx.font = '400 54px "Trebuchet MS", sans-serif';
-        spacedText(ctx, 'SELAMAT', 540, 346, 14);
-
-        ctx.fillStyle = '#f7e7c6';
-        ctx.font = '400 132px Georgia, "Times New Roman", serif';
-        ctx.fillText('NATAL', 540, 470);
-
-        ctx.strokeStyle = 'rgba(232,194,106,0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(390, 1320);
-        ctx.lineTo(690, 1320);
-        ctx.stroke();
-
-        drawEventBlock(ctx, m.eventName, 540, {
-          y: 1392,
-          size: 34,
-          maxWidth: 880,
-          lineGap: 46,
-          forceTwo: true,
-          color: 'rgba(247,231,198,0.85)'
-        });
-
-        ctx.fillStyle = 'rgba(247,231,198,0.45)';
-        ctx.font = '400 23px "Trebuchet MS", sans-serif';
-        ctx.fillText(m.code || '', 540, 1606);
-      }
-    },
-
-    /* ---------- 6. Story kolase 9:16 ---------- */
-    {
-      id: 'story3',
-      name: 'Story Kolase',
-      desc: '3 foto, 9:16 untuk Story & Reels',
-      group: 'story',
-      ratio: '9:16',
-      w: 1080,
-      h: 1920,
-      shots: 3,
-      slots: [
-        { x: 60, y: 292, w: 960, h: 636, r: 24 },
-        { x: 60, y: 952, w: 470, h: 436, r: 20 },
-        { x: 550, y: 952, w: 470, h: 436, r: 20 }
-      ],
-      bg: function (ctx) {
-        const g = ctx.createLinearGradient(0, 0, 1080, 1920);
-        g.addColorStop(0, '#0f3d2b');
-        g.addColorStop(0.45, '#24060c');
-        g.addColorStop(1, '#4a0710');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 1080, 1920);
-
-        const rg = ctx.createRadialGradient(540, 160, 40, 540, 160, 700);
-        rg.addColorStop(0, 'rgba(232,194,106,0.20)');
-        rg.addColorStop(1, 'rgba(232,194,106,0)');
-        ctx.fillStyle = rg;
-        ctx.fillRect(0, 0, 1080, 900);
-
-        const pts = [
-          [86, 150, 15], [992, 196, 12], [70, 760, 13],
-          [1010, 860, 16], [112, 1440, 15], [968, 1470, 12],
-          [540, 1600, 10]
-        ];
-        pts.forEach(function (p) { snowflake(ctx, p[0], p[1], p[2], '#f3e3c0', 0.16); });
-      },
-      overlay: function (ctx, m) {
-        ctx.strokeStyle = 'rgba(232,194,106,0.85)';
-        ctx.lineWidth = 5;
-        ctx.strokeRect(34, 34, 1012, 1852);
-        ctx.strokeStyle = 'rgba(232,194,106,0.26)';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(46, 46, 988, 1828);
-
-        ctx.strokeStyle = 'rgba(232,194,106,0.62)';
-        ctx.lineWidth = 4;
-        roundRect(ctx, 60, 292, 960, 636, 24);
-        ctx.stroke();
-        roundRect(ctx, 60, 952, 470, 436, 20);
-        ctx.stroke();
-        roundRect(ctx, 550, 952, 470, 436, 20);
-        ctx.stroke();
-
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-
-        ctx.fillStyle = 'rgba(247,231,198,0.5)';
-        ctx.font = '600 22px "Trebuchet MS", sans-serif';
-        spacedText(ctx, 'PHOTOBOOTH', 540, 158, 10);
-
-        ctx.fillStyle = '#f7e7c6';
-        ctx.font = '400 62px Georgia, "Times New Roman", serif';
-        ctx.fillText('SELAMAT NATAL', 540, 252);
-
-        ctx.strokeStyle = 'rgba(232,194,106,0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(390, 1444);
-        ctx.lineTo(690, 1444);
-        ctx.stroke();
-
-        drawEventBlock(ctx, m.eventName, 540, {
-          y: 1512,
-          size: 32,
-          maxWidth: 860,
-          lineGap: 44,
-          forceTwo: true,
-          color: 'rgba(247,231,198,0.85)'
-        });
-
-        ctx.fillStyle = 'rgba(247,231,198,0.45)';
-        ctx.font = '400 22px "Trebuchet MS", sans-serif';
-        ctx.fillText(m.code || '', 540, 1690);
-      }
-    }
-  ];
-
-  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-    const words = String(text).split(/\s+/);
-    let line = '';
-    let ly = y;
-    for (let i = 0; i < words.length; i++) {
-      const test = line ? line + ' ' + words[i] : words[i];
-      if (ctx.measureText(test).width > maxWidth && line) {
-        ctx.fillText(line, x, ly);
-        line = words[i];
-        ly += lineHeight;
-      } else {
-        line = test;
-      }
-    }
-    if (line) ctx.fillText(line, x, ly);
-  }
-
-  /**
-   * Pecah teks jadi maksimal 2 baris yang seimbang (bukan baris kedua pendek).
-   * Mengembalikan array baris yang sudah muat di maxWidth.
-   */
-  function balancedLines(ctx, text, maxWidth, maxLines, forceTwo) {
-    const raw = String(text || '').trim();
-    if (!raw) return [];
-    if (!forceTwo && ctx.measureText(raw).width <= maxWidth) return [raw];
-    if (maxLines < 2) return [raw];
-
-    const words = raw.split(/\s+/);
-    let best = null;
-
-    for (let i = 1; i < words.length; i++) {
-      const a = words.slice(0, i).join(' ');
-      const b = words.slice(i).join(' ');
-      const wa = ctx.measureText(a).width;
-      const wb = ctx.measureText(b).width;
-      if (wa > maxWidth || wb > maxWidth) continue;
-      const score = Math.max(wa, wb);
-      if (!best || score < best.score) best = { lines: [a, b], score: score };
-    }
-
-    return best ? best.lines : [raw];
-  }
-
-  /**
-   * Gambar nama acara (boleh 2 baris) dengan auto-shrink kalau kepanjangan.
-   */
-  function drawEventBlock(ctx, text, cx, opts) {
-    const upper = String(text || '').toUpperCase();
-    ctx.fillStyle = opts.color || 'rgba(247,231,198,0.75)';
-    ctx.font = '400 ' + opts.size + 'px "Trebuchet MS", sans-serif';
-
-    const lines = balancedLines(ctx, upper, opts.maxWidth, opts.maxLines || 2, opts.forceTwo);
-
-    // kalau masih kepanjangan dalam satu baris, kecilkan font
-    if (lines.length === 1 && ctx.measureText(lines[0]).width > opts.maxWidth) {
-      let size = opts.size;
-      while (size > 11 && ctx.measureText(lines[0]).width > opts.maxWidth) {
-        size -= 1;
-        ctx.font = '400 ' + size + 'px "Trebuchet MS", sans-serif';
-      }
-    }
-
-    lines.forEach(function (line, i) {
-      ctx.fillText(line, cx, opts.y + i * (opts.lineGap || 24));
-    });
-
-    return lines.length;
-  }
-
-  /**
-   * Gambar template lengkap ke canvas.
-   * @param {HTMLCanvasElement} canvas
-   * @param {object} tpl
-   * @param {Array<HTMLCanvasElement|HTMLImageElement>} photos
-   * @param {{eventName?:string, code?:string}} meta
-   */
-  function renderTemplate(canvas, tpl, photos, meta) {
-    const m = meta || {};
-    canvas.width = tpl.w;
-    canvas.height = tpl.h;
+  function renderTemplate(canvas, tpl, photos, meta, scaleOverride) {
+    const scale = Number(scaleOverride) > 0 ? Number(scaleOverride) : (tpl.scale || 1);
+    canvas.width = Math.round(tpl.w * scale);
+    canvas.height = Math.round(tpl.h * scale);
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, tpl.w, tpl.h);
-
-    tpl.bg(ctx, m);
-
-    tpl.slots.forEach(function (slot, i) {
-      if (photos && photos[i]) {
-        drawPhoto(ctx, photos[i], slot.x, slot.y, slot.w, slot.h, slot.r || 0);
-      } else {
-        placeholder(ctx, slot);
-      }
-    });
-
-    tpl.overlay(ctx, m);
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    const colors = palettes[tpl.palette];
+    drawBackground(ctx, tpl, colors);
+    tpl.slots.forEach((s, i) => drawSlot(ctx, s, photos && photos[i], colors[2], i));
+    if (tpl.embossed) {
+      const s = tpl.slots[0];
+      ctx.save();
+      rounded(ctx, s.x, s.y, s.w, s.h, s.r);
+      ctx.clip();
+      const shade = ctx.createLinearGradient(0, 810, 0, 1252);
+      shade.addColorStop(0, 'rgba(25,12,43,0)');
+      shade.addColorStop(1, 'rgba(25,12,43,0.86)');
+      ctx.fillStyle = shade;
+      ctx.fillRect(s.x, 810, s.w, 442);
+      ctx.restore();
+    } else {
+      ctx.strokeStyle = colors[2];
+      ctx.lineWidth = 2;
+      rounded(ctx, 14, 14, tpl.w - 28, tpl.h - 28, 18);
+      ctx.stroke();
+    }
+    christmasTree(ctx, ...tpl.tree);
+    drawTitle(ctx, tpl, colors[2]);
     return canvas;
   }
 
   window.PB = window.PB || {};
-  window.PB.TEMPLATES = TEMPLATES;
-  window.PB.GROUPS = GROUPS;
-  window.PB.renderTemplate = renderTemplate;
+  Object.assign(window.PB, { GROUPS, TEMPLATES, renderTemplate });
 })();
