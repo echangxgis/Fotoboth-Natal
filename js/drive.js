@@ -107,13 +107,16 @@
     const base64 = String(opts.dataUrl || '').split(',')[1] || '';
     if (!base64) return Promise.reject(new Error('Data file kosong'));
 
-    const kind = opts.kind === 'video' ? 'video' : 'photo';
+    if (opts.kind && opts.kind !== 'photo' && opts.kind !== 'gif') {
+      return Promise.reject(new Error('Format lama tidak lagi didukung'));
+    }
+    const kind = opts.kind === 'gif' ? 'gif' : 'photo';
     const payload = {
       token: opts.token || '',
       code: opts.code || '',
       filename: opts.filename || ('foto_' + Date.now() + '.jpg'),
       kind: kind,
-      mimeType: opts.mimeType || (kind === 'video' ? 'video/webm' : 'image/jpeg'),
+      mimeType: kind === 'gif' ? 'image/gif' : (opts.mimeType || 'image/jpeg'),
       data: base64
     };
 
@@ -151,13 +154,19 @@
    * Kalau server menolak (token salah, folder tidak ada), tidak diulang.
    */
   function upload(opts) {
-    return uploadOnce(opts).catch(function (err) {
+    const ready = function () { return opts.kind === 'gif' ? ping(opts.endpoint).then(function (info) {
+      if (!Array.isArray(info.supports) || !info.supports.includes('gif')) {
+        throw new Error('Server Drive belum mendukung GIF. Perbarui Code.gs.');
+      }
+    }) : Promise.resolve(); };
+    const attempt = function () { return ready().then(function () { return uploadOnce(opts); }); };
+    return attempt().catch(function (err) {
       const msg = String((err && err.message) || err);
       const bisaDiulang = /timeout|Koneksi terlalu lama|Tidak bisa menghubungi|Failed to fetch|NetworkError|Load failed|network/i.test(msg);
       if (!bisaDiulang) throw err;
       console.warn('Upload gagal, mencoba sekali lagi:', msg);
       return new Promise(function (r) { setTimeout(r, 1500); })
-        .then(function () { return uploadOnce(opts); });
+        .then(attempt);
     });
   }
 

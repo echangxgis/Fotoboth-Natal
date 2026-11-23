@@ -722,15 +722,15 @@ body {
 .modal-card select:focus { border-color: var(--gold); }
 .modal-card select:disabled { opacity: 0.45; cursor: default; }
 
-.done-wrap > .done-video {
+.done-wrap > .done-gif {
   margin: -6px 0 16px;
   font-size: 13px;
   line-height: 1.45;
   color: var(--muted);
 }
-.done-video.ok { color: var(--gold); }
-.done-video.warn { color: #e8a04a; }
-.done-video[hidden] { display: none; }
+.done-gif.ok { color: var(--gold); }
+.done-gif.warn { color: #e8a04a; }
+.done-gif[hidden] { display: none; }
 
 .status {
   margin: 14px 0 0;

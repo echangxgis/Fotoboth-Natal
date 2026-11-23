@@ -83,7 +83,7 @@
       <div class="done-icon" id="doneIcon">✓</div>
       <h2 id="doneTitle">Foto tersimpan!</h2>
       <p id="doneMsg">Terima kasih sudah berfoto.</p>
-      <p id="doneVideo" class="done-video" hidden></p>
+      <p id="doneGif" class="done-gif" hidden></p>
       <div class="result-card">
         <canvas id="resultCanvas"></canvas>
         <div class="result-meta">
@@ -145,23 +145,22 @@
     <input id="opFolder" type="text" autocomplete="off">
 
     <div class="op-row">
-      <span>Rekam video singkat tiap sesi</span>
-      <input id="opVideo" type="checkbox">
+      <span>Buat GIF animasi</span>
+      <input id="opGif" type="checkbox">
     </div>
 
     <div class="op-row">
-      <label for="opVideoSeconds">Batas durasi video</label>
-      <select id="opVideoSeconds">
-        <option value="5">5 detik</option>
+      <label for="opGifSeconds">Batas durasi GIF</label>
+      <select id="opGifSeconds">
+        <option value="3">3 detik</option>
+        <option value="4">4 detik</option>
+        <option value="6">6 detik</option>
         <option value="8">8 detik</option>
-        <option value="10">10 detik</option>
-        <option value="15">15 detik</option>
-        <option value="25">25 detik</option>
       </select>
     </div>
 
     <div class="op-row">
-      <span>Dukungan video di server</span>
+      <span>Dukungan GIF di server</span>
       <span id="opServer" class="op-note">memeriksa...</span>
     </div>
 
@@ -211,6 +210,7 @@
 
 <script src="js/config.js"></script>
 <script src="js/templates.js"></script>
+<script src="js/gif.js"></script>
 <script src="js/drive.js"></script>
 <script src="js/app.js"></script>
 </body>

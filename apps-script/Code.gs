@@ -25,15 +25,15 @@ var TOKEN = 'NTL-7f3a9c2e';
 /** Buat subfolder per tanggal di dalam folder utama. */
 var SUBFOLDER_PER_DAY = true;
 
-/** Pisahkan hasil foto dan video ke folder berbeda. */
-var SPLIT_PHOTO_VIDEO = true;
+/** Pisahkan hasil foto dan GIF ke folder berbeda. */
+var SPLIT_PHOTO_GIF = true;
 var PHOTO_FOLDER_NAME = 'Gambar';
-var VIDEO_FOLDER_NAME = 'Video';
+var GIF_FOLDER_NAME = 'GIF';
 
 /** Jadikan file bisa dilihat siapa saja yang punya link (untuk dibagikan ke guru). */
 var MAKE_FILE_PUBLIC = true;
 
-/** Batas ukuran base64 (karakter). 24 MB cukup untuk foto besar dan video singkat. */
+/** Batas ukuran base64 (karakter). 24 MB cukup untuk foto besar dan GIF singkat. */
 var MAX_BASE64_LENGTH = 24 * 1024 * 1024;
 
 /** Zona waktu untuk penamaan folder. */
@@ -48,8 +48,8 @@ function doGet(e) {
   return json({
     ok: true,
     service: 'photobooth-natal',
-    version: 2,
-    supports: ['photo', 'video'],
+    version: 3,
+    supports: ['photo', 'gif'],
     folderId: ROOT_FOLDER_ID,
     time: new Date().toISOString()
   });
@@ -73,19 +73,22 @@ function doPost(e) {
       throw new Error('File terlalu besar (maksimal ' + Math.round(MAX_BASE64_LENGTH / 1024 / 1024) + ' MB)');
     }
 
-    var kind = body.kind === 'video' ? 'video' : 'photo';
-    var mimeType = body.mimeType || (kind === 'video' ? 'video/webm' : 'image/jpeg');
+    var kind = body.kind === undefined ? 'photo' : body.kind;
+    if (kind !== 'photo' && kind !== 'gif') {
+      throw new Error('Jenis file tidak didukung');
+    }
+    var mimeType = kind === 'gif' ? 'image/gif' : (body.mimeType || 'image/jpeg');
 
     var root = DriveApp.getFolderById(ROOT_FOLDER_ID);
     var base = root;
-    if (SPLIT_PHOTO_VIDEO) {
-      base = getOrCreateFolder(root, kind === 'video' ? VIDEO_FOLDER_NAME : PHOTO_FOLDER_NAME);
+    if (SPLIT_PHOTO_GIF) {
+      base = getOrCreateFolder(root, kind === 'gif' ? GIF_FOLDER_NAME : PHOTO_FOLDER_NAME);
     }
     var target = SUBFOLDER_PER_DAY ? getOrCreateFolder(base, dayStamp()) : base;
 
     var code = sanitize(body.code || 'FOTO');
     var filename = sanitize(body.filename || (code + '_' + Date.now()));
-    filename = ensureExtension(filename, kind, mimeType);
+    filename = ensureExtension(filename, kind);
 
     var blob = Utilities.newBlob(
       Utilities.base64Decode(body.data),
@@ -148,10 +151,9 @@ function sanitize(value) {
     .slice(0, 120);
 }
 
-function ensureExtension(filename, kind, mimeType) {
-  if (kind === 'video') {
-    if (/\.(webm|mp4|mov)$/i.test(filename)) return filename;
-    return filename + (/mp4/i.test(mimeType) ? '.mp4' : '.webm');
+function ensureExtension(filename, kind) {
+  if (kind === 'gif') {
+    return /\.gif$/i.test(filename) ? filename : filename + '.gif';
   }
   if (/\.(jpe?g|png)$/i.test(filename)) return filename;
   return filename + '.jpg';

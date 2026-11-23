@@ -21,8 +21,8 @@
     eventName: 'Natal Sekolah Kristen Kalam Kudus Sentani 2026',
     codePrefix: 'NTL',
     autoResetMs: 30000,
-    videoEnabled: true,
-    videoSeconds: 8
+    gifEnabled: true,
+    gifSeconds: 4
   }, window.PB_CONFIG || {});
 
   const TEMPLATES = window.PB.TEMPLATES;
@@ -40,13 +40,11 @@
     idleTimer: null,
     current: 'start',
     seqId: 0,
-    recorder: null,
-    videoTimer: null,
-    videoResolve: null,
-    videoDiscard: false,
-    video: null,
+    gifTimer: null,
+    gifFrames: null,
+    gif: null,
     serverVersion: null,
-    videoBlocked: false
+    gifBlocked: false
   };
 
   let cfg = loadCfg();
@@ -173,9 +171,9 @@
       el.textContent = 'memeriksa...';
       return;
     }
-    if (state.serverVersion >= 2) {
+    if (!state.gifBlocked) {
       el.className = 'op-note ok';
-      el.textContent = 'siap · folder Gambar & Video';
+      el.textContent = 'siap · folder Gambar & GIF';
     } else {
       el.className = 'op-note err';
       el.textContent = 'versi lama · perbarui Code.gs';
@@ -183,17 +181,17 @@
   }
 
   /**
-   * Cek versi Apps Script. Server versi lama belum mengenal folder video,
+   * Cek versi Apps Script. Server versi lama belum mengenal folder GIF,
    * jadi rekaman ditahan supaya tidak tersimpan dengan nama aneh.
    */
   function checkServer() {
     if (!cfg.endpoint) return;
     window.Drive.ping(cfg.endpoint).then(function (info) {
       state.serverVersion = Number(info && info.version) || 0;
-      state.videoBlocked = state.serverVersion < 2;
+      state.gifBlocked = !(info && Array.isArray(info.supports) && info.supports.includes('gif'));
       updateServerNote();
-      if (state.videoBlocked && cfg.videoEnabled) {
-        toast('Server Drive masih versi lama. Perbarui Code.gs agar video masuk folder Video.', 9000);
+      if (state.gifBlocked && cfg.gifEnabled) {
+        toast('Server Drive masih versi lama. Perbarui Code.gs agar GIF masuk folder GIF.', 9000);
       }
     }).catch(function () {
       state.serverVersion = null;
@@ -515,128 +513,54 @@
   }
 
   /* =========================================================
-     Video singkat saat pengambilan foto
+     GIF animasi saat pengambilan foto
      ========================================================= */
 
-  const VIDEO_BITRATE = 1500000;
-  const VIDEO_DEFAULT_SECONDS = 8;
+  const GIF_DELAY = 160;
 
-  /** Panjang video dalam milidetik. Bawaan 8 detik, boleh 3–25 detik. */
-  function videoMaxMs() {
-    const sec = Number(cfg.videoSeconds);
-    const n = isFinite(sec) && sec > 0 ? sec : VIDEO_DEFAULT_SECONDS;
-    return Math.max(3, Math.min(25, n)) * 1000;
-  }
-
-  function recordingSupported() {
-    return !!(window.MediaRecorder && state.stream);
-  }
-
-  function pickVideoMime() {
-    const list = [
-      'video/webm;codecs=vp9',
-      'video/webm;codecs=vp8',
-      'video/webm',
-      'video/mp4'
-    ];
-    for (let i = 0; i < list.length; i++) {
-      if (window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported(list[i])) {
-        return list[i];
-      }
-    }
-    return '';
-  }
-
-  function startRecording() {
-    if (!cfg.videoEnabled) return;
-    if (state.videoBlocked) return;
-    if (state.recorder || !recordingSupported()) return;
-
-    state.video = null;
-    state.videoDiscard = false;
-    const mimeType = pickVideoMime();
-    const chunks = [];
-    let rec;
-
-    try {
-      rec = mimeType
-        ? new MediaRecorder(state.stream, { mimeType: mimeType, videoBitsPerSecond: VIDEO_BITRATE })
-        : new MediaRecorder(state.stream, { videoBitsPerSecond: VIDEO_BITRATE });
-    } catch (err) {
-      console.warn('Video tidak bisa direkam:', err);
-      return;
-    }
-
-    const actual = rec.mimeType || mimeType || 'video/webm';
-
-    rec.ondataavailable = function (e) {
-      if (e.data && e.data.size) chunks.push(e.data);
-    };
-    rec.onstop = function () {
-      state.recorder = null;
-      clearTimeout(state.videoTimer);
-      state.videoTimer = null;
-
-      const blob = new Blob(chunks, { type: actual });
-      const result = blob.size > 2000 ? { blob: blob, mimeType: actual } : null;
-      state.video = state.videoDiscard ? null : result;
-
-      const resolve = state.videoResolve;
-      state.videoResolve = null;
-      if (resolve) resolve(state.video);
-    };
-
-    state.recorder = rec;
-    try {
-      rec.start(1000);
-    } catch (err) {
-      console.warn('Perekaman gagal dimulai:', err);
-      state.recorder = null;
-      return;
-    }
-
-    clearTimeout(state.videoTimer);
-    state.videoTimer = setTimeout(function () { stopRecording(); }, videoMaxMs());
-  }
-
-  function stopRecording(discard) {
-    clearTimeout(state.videoTimer);
-    state.videoTimer = null;
-    if (discard) {
-      state.videoDiscard = true;
-      state.video = null;
-    }
-
-    const rec = state.recorder;
-    if (!rec) {
-      return Promise.resolve(null);
-    }
-
-    return new Promise(function (resolve) {
-      const pending = state.videoResolve;
-      if (pending) {
-        state.videoResolve = function (result) {
-          pending(result);
-          resolve(result);
-        };
-        return;
-      }
-      state.videoResolve = resolve;
+  function startGif() {
+    if (!cfg.gifEnabled || !window.PB.encodeGif) return;
+    const camera = $('#video');
+    if (!camera.videoWidth || !camera.videoHeight) return;
+    const canvas = document.createElement('canvas');
+    const scale = Math.min(1, 360 / Math.max(camera.videoWidth, camera.videoHeight));
+    canvas.width = Math.max(1, Math.round(camera.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(camera.videoHeight * scale));
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const frames = [];
+    const limit = Math.ceil(Math.max(3, Math.min(8, Number(cfg.gifSeconds) || 4)) * 1000 / GIF_DELAY);
+    function capture() {
       try {
-        if (rec.state !== 'inactive') rec.stop();
+        ctx.save();
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        try { ctx.drawImage(camera, 0, 0, canvas.width, canvas.height); }
+        finally { ctx.restore(); }
+        frames.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        if (frames.length >= limit) clearInterval(state.gifTimer);
       } catch (err) {
-        state.recorder = null;
-        state.videoResolve = null;
-        resolve(null);
+        clearInterval(state.gifTimer);
+        console.warn('Gagal mengambil frame GIF:', err);
       }
-    });
+    }
+    state.gifFrames = frames;
+    state.gifTimer = setInterval(capture, GIF_DELAY);
+    capture();
+  }
+
+  function stopGif(discard) {
+    clearInterval(state.gifTimer);
+    state.gifTimer = null;
+    const frames = state.gifFrames;
+    state.gifFrames = null;
+    if (!discard && frames && frames.length > 1) state.gif = frames;
   }
 
   function blobToDataUrl(blob) {
     return new Promise(function (resolve, reject) {
       const reader = new FileReader();
       reader.onload = function () { resolve(String(reader.result || '')); };
-      reader.onerror = function () { reject(new Error('Video tidak bisa dibaca')); };
+      reader.onerror = function () { reject(new Error('GIF tidak bisa dibaca')); };
       reader.readAsDataURL(blob);
     });
   }
@@ -683,7 +607,7 @@
     const seqId = ++state.seqId;
     state.busy = true;
     state.captures = [];
-    state.video = null;
+    state.gif = null;
     show('capture');
     hideCameraError();
     buildDots(tpl.shots, 0);
@@ -702,8 +626,8 @@
     await sleep(800);
     if (seqId !== state.seqId) return;
 
-    // mulai merekam video singkat selama sesi foto berlangsung
-    startRecording();
+    // mulai mengambil frame GIF selama sesi foto berlangsung
+    startGif();
 
     for (let i = 0; i < tpl.shots; i++) {
       if (seqId !== state.seqId) return;
@@ -725,8 +649,8 @@
 
     if (seqId !== state.seqId) return;
 
-    // hentikan rekaman, simpan hasilnya untuk diunggah bersama foto
-    await stopRecording();
+    // hentikan pengambilan frame, simpan hasilnya untuk diunggah bersama foto
+    stopGif();
     if (seqId !== state.seqId) return;
 
     renderReview();
@@ -737,8 +661,8 @@
   function cancelSequence() {
     state.seqId += 1;
     state.busy = false;
-    stopRecording(true);
-    state.video = null;
+    stopGif(true);
+    state.gif = null;
     hideCameraError();
     $('#countdown').classList.remove('show', 'pop');
     $('#countdown').textContent = '';
@@ -823,11 +747,11 @@
       fileLink.hidden = true;
       fileLink.removeAttribute('href');
     }
-    const doneVideo = $('#doneVideo');
-    if (doneVideo) {
-      doneVideo.hidden = true;
-      doneVideo.className = 'done-video';
-      doneVideo.textContent = '';
+    const doneGif = $('#doneGif');
+    if (doneGif) {
+      doneGif.hidden = true;
+      doneGif.className = 'done-gif';
+      doneGif.textContent = '';
     }
     const qr = $('#qrImg');
     qr.hidden = true;
@@ -883,73 +807,73 @@
     $('#btnApprove').disabled = false;
     startDoneTimer();
 
-    // video diunggah setelah foto, tidak menahan layar hasil
-    const video = state.video;
-    state.video = null;
-    if (video && cfg.videoEnabled) {
-      sendVideo(video, tpl, state.code, state.seqId);
+    // GIF diunggah setelah foto, tidak menahan layar hasil
+    const frames = state.gif;
+    state.gif = null;
+    if (frames && cfg.gifEnabled) {
+      sendGif(frames, tpl, state.code, state.seqId);
     }
   }
 
   /**
-   * Kirim video singkat sesi foto. Kalau gagal, masuk antrean seperti foto.
+   * Kirim GIF animasi sesi foto. Kalau gagal, masuk antrean seperti foto.
    */
-  async function sendVideo(video, tpl, code, seq) {
-    const note = $('#doneVideo');
-    const filename = code + '_' + tpl.id + (/mp4/i.test(video.mimeType) ? '.mp4' : '.webm');
+  async function sendGif(frames, tpl, code, seq) {
+    const note = $('#doneGif');
+    const filename = code + '_' + tpl.id + '.gif';
     const masihSesiIni = function () { return state.seqId === seq && state.code === code; };
 
     if (note && masihSesiIni()) {
       note.hidden = false;
-      note.className = 'done-video';
-      note.textContent = 'Mengirim video singkat...';
+      note.className = 'done-gif';
+      note.textContent = 'Mengirim GIF animasi...';
     }
 
     let dataUrl = '';
     try {
-      dataUrl = await blobToDataUrl(video.blob);
+      dataUrl = await blobToDataUrl(window.PB.encodeGif(frames, GIF_DELAY));
       const res = await window.Drive.upload({
         endpoint: cfg.endpoint,
         token: cfg.token,
         code: code,
         filename: filename,
         dataUrl: dataUrl,
-        kind: 'video',
-        mimeType: video.mimeType
+        kind: 'gif',
+        mimeType: 'image/gif'
       });
-      console.log('Video tersimpan:', res);
+      console.log('GIF tersimpan:', res);
       if (note && masihSesiIni()) {
-        note.className = 'done-video ok';
-        note.textContent = 'Video singkat sesi ini tersimpan di folder Video. ';
+        note.className = 'done-gif ok';
+        note.textContent = 'GIF animasi sesi ini tersimpan di folder GIF. ';
         if (res && res.folderUrl) {
           const a = document.createElement('a');
           a.href = res.folderUrl;
           a.target = '_blank';
           a.rel = 'noopener';
           a.className = 'link';
-          a.textContent = 'Buka folder Video';
+          a.textContent = 'Buka folder GIF';
           note.appendChild(a);
         }
       }
     } catch (err) {
       const alasan = String((err && err.message) || err);
-      console.warn('Upload video gagal:', err);
+      console.warn('Upload GIF gagal:', err);
       if (dataUrl) {
         await window.Drive.queueAdd({
           code: code,
           filename: filename,
           dataUrl: dataUrl,
-          kind: 'video',
-          mimeType: video.mimeType,
+          kind: 'gif',
+          mimeType: 'image/gif',
           createdAt: Date.now(),
           error: alasan
         });
       }
       if (note && masihSesiIni()) {
-        note.className = 'done-video warn';
+        note.className = 'done-gif warn';
         note.textContent = dataUrl
-          ? 'Video belum terkirim, akan dikirim otomatis nanti.'
-          : 'Video tidak bisa disiapkan di perangkat ini.';
+          ? 'GIF belum terkirim, akan dikirim otomatis nanti.'
+          : 'GIF tidak bisa disiapkan di perangkat ini.';
       }
     }
   }
@@ -961,7 +885,7 @@
     state.captures = [];
     state.code = '';
     state.dataUrl = '';
-    state.video = null;
+    state.gif = null;
     state.busy = false;
     $('#btnApprove').disabled = false;
     const rc = $('#resultCanvas');
@@ -1015,9 +939,9 @@
     $('#opEndpoint').value = cfg.endpoint || '';
     $('#opToken').value = cfg.token || '';
     $('#opFolder').value = cfg.folderId || '';
-    $('#opVideo').checked = !!cfg.videoEnabled;
-    $('#opVideoSeconds').value = String(cfg.videoSeconds || 8);
-    $('#opVideoSeconds').disabled = !$('#opVideo').checked;
+    $('#opGif').checked = !!cfg.gifEnabled;
+    $('#opGifSeconds').value = String(cfg.gifSeconds || 4);
+    $('#opGifSeconds').disabled = !$('#opGif').checked;
     $('#opSessions').textContent = String(loadStats().count);
     $('#opStatus').textContent = '';
     $('#opStatus').className = 'status';
@@ -1070,10 +994,10 @@
 
     $('#btnOperator').addEventListener('click', openOperator);
 
-    const opVideo = $('#opVideo');
-    if (opVideo) {
-      opVideo.addEventListener('change', function () {
-        $('#opVideoSeconds').disabled = !this.checked;
+    const opGif = $('#opGif');
+    if (opGif) {
+      opGif.addEventListener('change', function () {
+        $('#opGifSeconds').disabled = !this.checked;
       });
     }
 
@@ -1150,8 +1074,8 @@
         endpoint: $('#opEndpoint').value.trim(),
         token: $('#opToken').value.trim(),
         folderId: match ? match[1] : folderInput,
-        videoEnabled: $('#opVideo').checked,
-        videoSeconds: Number($('#opVideoSeconds').value) || 8
+        gifEnabled: $('#opGif').checked,
+        gifSeconds: Number($('#opGifSeconds').value) || 4
       });
       buildTemplateGrid();
       $('#opStatus').textContent = 'Pengaturan disimpan.';

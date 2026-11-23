@@ -17,6 +17,6 @@ window.PB_CONFIG = {
   eventName: 'Natal Sekolah Kristen Kalam Kudus Sentani 2026',
   codePrefix: 'NTL',
   autoResetMs: 30000,
-  videoEnabled: true,
-  videoSeconds: 8
+  gifEnabled: true,
+  gifSeconds: 4
 };

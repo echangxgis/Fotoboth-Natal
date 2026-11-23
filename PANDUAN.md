@@ -140,7 +140,7 @@ https://script.google.com/macros/s/AKfycbx.../exec?ping=1
 Harus muncul tulisan seperti:
 
 ```json
-{"ok":true,"service":"photobooth-natal","folderId":"1Qm...","time":"2026-11-20T..."}
+{"ok":true,"service":"photobooth-natal","version":3,"supports":["photo","gif"],"folderId":"1Qm...","time":"2026-11-20T..."}
 ```
 
 Kalau muncul halaman login Google, berarti akses deploy belum "Anyone". Ulangi langkah 5.
@@ -165,7 +165,7 @@ Kalau gagal, pesan errornya akan menunjukkan penyebabnya (token salah, akses buk
 
 ### Memperbarui Apps Script (kalau kode berubah)
 
-Fitur video memakai `Code.gs` versi baru. Kalau project Apps Script Anda masih versi lama, foto tetap masuk, tetapi video belum dipisah ke folder `Video`.
+Fitur GIF memerlukan `Code.gs` dengan protokol versi 3 (`photo` dan `gif`). Sebelum mengganti kode, catat token dan pengaturan khusus Anda, lalu terapkan kembali sebelum menyimpan. Versi 3 tidak menerima unggahan `kind: 'video'`; file lama di folder `Video` tidak dipindahkan.
 
 1. Buka <https://script.google.com> dan buka project `Photobooth Natal`
 2. Di editor, pilih semua isi `Code.gs` (**Ctrl+A**), hapus
@@ -178,9 +178,9 @@ Fitur video memakai `Code.gs` versi baru. Kalau project Apps Script Anda masih v
 
 **Jangan** membuat deployment baru. Memperbarui deployment yang sama menjaga URL `/exec` tetap sama, jadi aplikasi tidak perlu diubah.
 
-Setelah itu buka `...?ping=1` untuk memastikan server masih hidup, lalu tes lewat **Panel Operator → Kirim foto uji**.
+Setelah itu buka `...?ping=1` dan pastikan respons menampilkan `"version":3` dan `"supports":["photo","gif"]`. Tes lewat **Panel Operator → Kirim foto uji**, lalu jalankan satu sesi dengan GIF aktif dan cek kedua hasilnya di Drive.
 
-Folder `Gambar` dan `Video` dibuat otomatis saat file pertama masuk. Tidak perlu membuatnya manual.
+Folder `Gambar` dan `GIF` dibuat otomatis saat file pertama masuk. Tidak perlu membuatnya manual.
 
 
 ---
@@ -325,7 +325,7 @@ start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk http://
 - [ ] `serve.ps1` sudah jalan
 - [ ] **Tes Koneksi** di panel operator berhasil
 - [ ] Tes 1 foto, cek hasilnya di Drive
-- [ ] Fitur video sudah diatur (nyala/mati) dan folder `Video` sudah dicek
+- [ ] Fitur GIF sudah diatur (nyala/mati) dan folder `GIF` sudah dicek jika fitur aktif
 - [ ] Lampu sudah dinyalakan dan diarahkan ke wajah
 - [ ] Background sudah dipasang
 - [ ] Notifikasi Windows dimatikan (Mode Fokus)
@@ -340,10 +340,10 @@ Klik ikon ⚙ di kanan atas, atau tekan **Ctrl+Shift+O**.
 Isinya:
 
 - Ubah nama acara, URL, token, folder
-- **Rekam video singkat tiap sesi**: hidupkan atau matikan perekaman video
+- Pengaturan GIF: hidupkan atau matikan pembuatan GIF tiap sesi
 - **Tes kamera** untuk memastikan resolusi
-- **Antrean belum terkirim**: jumlah foto dan video yang gagal dikirim
-- **Kirim ulang**: mengirim ulang semua foto dan video di antrean
+- **Antrean belum terkirim**: jumlah foto dan GIF yang gagal dikirim
+- **Kirim ulang**: mengirim ulang semua foto dan GIF di antrean
 - **Sesi tersimpan**: jumlah foto hari ini
 
 ---
@@ -359,14 +359,14 @@ Canvas menggabungkan foto + dekorasi + kode sesi
       ↓
 JPEG dikirim ke Apps Script (POST)  →  folder Gambar
       ↓
-Video singkat ikut dikirim (kalau fitur video aktif)  →  folder Video
+GIF animasi ikut dikirim (kalau fitur GIF aktif)  →  folder GIF
       ↓
 Apps Script menyimpan ke folder Drive
       ↓
 Aplikasi menampilkan kode + QR menuju folder
 ```
 
-Kalau internet mati, foto dan video **tetap tersimpan di perangkat** (IndexedDB) dan otomatis dikirim saat koneksi kembali. Tidak ada yang hilang.
+Kalau internet mati, foto dan GIF **tetap tersimpan di perangkat** (IndexedDB) dan otomatis dikirim saat koneksi kembali. Tidak ada yang hilang.
 
 ### Penamaan file
 
@@ -377,11 +377,11 @@ NTL-001_strip3.jpg
 NTL-002_square.jpg
 ```
 
-Video singkat:
+GIF animasi:
 
 ```
-NTL-001_strip3.webm
-NTL-002_square.webm
+NTL-001_strip3.gif
+NTL-002_square.gif
 ```
 
 Foto dan video dipisah ke folder masing-masing, lalu dipecah lagi per tanggal:
@@ -392,48 +392,30 @@ Fotoboth/
 │  └─ 2026-12-15/
 │     ├─ NTL-001_strip3.jpg
 │     └─ NTL-002_square.jpg
-└─ Video/
+└─ GIF/
    └─ 2026-12-15/
-      ├─ NTL-001_strip3.webm
-      └─ NTL-002_square.webm
+      ├─ NTL-001_strip3.gif
+      └─ NTL-002_square.gif
 ```
 
-Kode `NTL-001` dipakai untuk foto dan videonya, jadi mudah dicocokkan.
+Kode `NTL-001` dipakai untuk foto dan GIF-nya, jadi mudah dicocokkan.
 
 ---
 
-## Video Singkat Sesi Foto
+## GIF Animasi Sesi Foto
 
-Selain foto, aplikasi bisa merekam video pendek **selama anak berpose**. Videonya tanpa suara, dimulai saat hitungan mundur dan berhenti setelah foto terakhir.
+Selain foto, aplikasi bisa membuat GIF animasi tanpa suara. GIF dikirim sebagai `kind: 'gif'` dengan jenis MIME `image/gif` dan disimpan dengan ekstensi `.gif`.
 
 ### Menyalakan atau mematikan
 
-1. Klik ikon **⚙** di kanan atas (atau **Ctrl+Shift+O**)
-2. Cari baris **Rekam video singkat tiap sesi**
-3. Centang untuk menyalakan, kosongkan untuk mematikan
-4. Klik **Simpan**
+1. Buka **Panel Operator** lewat ikon **⚙** atau **Ctrl+Shift+O**.
+2. Nyalakan atau matikan opsi GIF, lalu klik **Simpan**.
 
 Pengaturan ini tersimpan di perangkat itu saja. Kalau memakai beberapa laptop, atur di masing-masing.
 
-### Batas dan ukuran
+### Kalau GIF gagal dikirim
 
-| Hal | Nilai |
-|---|---|
-| Batas durasi | 8 detik secara bawaan; pilihan 5, 8, 10, 15, atau 25 detik di Panel Operator |
-| Resolusi | Mengikuti resolusi yang didukung kamera |
-| Ukuran file | Bergantung pada durasi dan hasil kompresi |
-| Suara | Tidak direkam |
-
-Kalau anak terlalu lama di layar periksa, rekaman sudah berhenti lebih dulu — jadi videonya tetap singkat.
-
-### Kalau video gagal dikirim
-
-Video masuk antrean yang sama dengan foto. Layar hasil menulis **"Video belum terkirim, akan dikirim otomatis nanti."** Tidak perlu panik: video aman di perangkat dan dikirim otomatis saat koneksi membaik, atau lewat **Panel Operator → Kirim ulang**.
-
-### Syarat
-
-- **Chrome atau Edge versi baru.** Firefox dan Safari biasanya juga bisa, tapi formatnya kadang berbeda.
-- **Code.gs terbaru harus sudah di-deploy.** Versi lama belum mengenal folder `Gambar` dan `Video`. Lihat **Bagian 1 → Memperbarui Apps Script**.
+GIF masuk antrean yang sama dengan foto dan dikirim ulang saat koneksi membaik. Anda juga bisa memilih **Panel Operator → Kirim ulang**. Jika folder `GIF` belum muncul setelah sesi uji, pastikan endpoint melaporkan protokol versi 3. Lihat **Bagian 1 → Memperbarui Apps Script**.
 
 ---
 
@@ -510,9 +492,8 @@ Kalau `img/logo.png` tidak ada, halaman depan tetap jalan tanpa logo.
 | "Foto tersimpan di perangkat" | Upload gagal / koneksi lambat | Foto tetap aman. Cek **Panel Operator → Kirim ulang**, atau tunggu 60 detik (dikirim otomatis) |
 | Upload terasa lama | Foto besar + wifi lambat | Aplikasi mencoba ulang otomatis. Kalau tetap gagal, gunakan wifi yang lebih kuat |
 | Foto tidak kelihatan di Drive | Foto masuk ke subfolder tanggal | Buka folder **Fotoboth → Gambar → 2026-11-22** (sesuai tanggal acara) |
-| Video tidak ada di Drive | Code.gs lama belum mendukung folder video | Tempel ulang `Code.gs` terbaru lalu **Manage deployments → New version** |
-| Nama video berakhiran `.webm.jpg` | Code.gs lama menambahkan `.jpg` ke semua file | Sama: perbarui `Code.gs` dan deploy versi baru |
-| Video tidak direkam | Fitur video dimatikan, atau browser tidak mendukung | Panel Operator → centang **Rekam video singkat tiap sesi**, pakai Chrome/Edge terbaru |
+| GIF tidak ada di Drive atau berakhiran `.gif.jpg` | Endpoint masih memakai protokol lama | Cek `?ping=1`; jika belum versi 3, perbarui `Code.gs` lewat **Manage deployments → New version** |
+| GIF tidak dibuat | Fitur GIF dimatikan | Nyalakan opsi GIF di Panel Operator, simpan, lalu coba sesi baru |
 | Mau tahu penyebab upload gagal | — | **Panel Operator → Kirim foto uji**. Pesan hasilnya menyebut penyebab persisnya |
 | Layar hitam di kamera | Kamera dipakai aplikasi lain | Tutup Zoom/Teams, lalu muat ulang |
 | Foto blur | Kurang cahaya | Tambah lampu, jangan andalkan lampu ruangan |
